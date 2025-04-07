@@ -11,7 +11,9 @@
 #include <QGridLayout>
 #include <QPlot/qcustomplot/qcustomplot.h>
 #include <fmt/format.h>
-#include "DataManager.h"
+
+#include "HistogramManager.h"
+
 #include <iostream>
 
 /// \brief Create a QCPColorGradient from a colormap name string

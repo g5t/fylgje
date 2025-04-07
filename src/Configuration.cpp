@@ -3,7 +3,6 @@
 ///
 /// \file Configuration.cpp
 ///
-/// \brief GUI and Kafka configuration
 //===----------------------------------------------------------------------===//
 
 #include "Configuration.h"
@@ -43,8 +42,8 @@ void Configuration::getKafkaConfig() {
   /// The rest are optional, using default values
   Kafka.MessageMaxBytes =
       getVal("kafka", "message.max.bytes", Kafka.MessageMaxBytes);
-  Kafka.FetchMessageMaxBytes =
-      getVal("kafka", "fetch.message.max.bytes", Kafka.FetchMessageMaxBytes);
+  Kafka.FetchMessagMaxBytes =
+      getVal("kafka", "fetch.message.max.bytes", Kafka.FetchMessagMaxBytes);
   Kafka.ReplicaFetchMaxBytes =
       getVal("kafka", "replica.fetch.max.bytes", Kafka.ReplicaFetchMaxBytes);
   Kafka.EnableAutoCommit =
@@ -74,7 +73,7 @@ void Configuration::print() {
   fmt::print("  broker {}\n", Kafka.Broker);
   fmt::print("  topic {}\n", Kafka.Topic);
   fmt::print("  message.max.bytes {}\n", Kafka.MessageMaxBytes);
-  fmt::print("  fetch.message.max.bytes {}\n", Kafka.FetchMessageMaxBytes);
+  fmt::print("  fetch.message.max.bytes {}\n", Kafka.FetchMessagMaxBytes);
   fmt::print("  replica.fetch.max.bytes {}\n", Kafka.ReplicaFetchMaxBytes);
   fmt::print("  enable.auto.commit {}\n", Kafka.EnableAutoCommit);
   fmt::print("  enable.auto.offset.store {}\n", Kafka.EnableAutoOffsetStore);

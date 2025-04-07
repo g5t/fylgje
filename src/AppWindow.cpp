@@ -10,12 +10,22 @@
 #include <fmt/core.h>
 #include "AppWindow.h"
 #include "./ui_AppWindow.h"
+#include "QHistogramManager.h"
 
-MainWindow::MainWindow(const Configuration & Config, const Calibration & calibration, QWidget *parent)
+MainWindow::MainWindow(
+    const Configuration & Config,
+    const Calibration & calibration,
+    kafka::time::milliseconds start,
+    std::optional<kafka::time::milliseconds> end,
+    const std::optional<std::string> & output,
+    bool store_events,
+    bool store_pixels,
+    QWidget *parent
+    )
     : QMainWindow(parent), ui(new Ui::MainWindow), configuration(Config), calibration(calibration)
 {
   ui->setupUi(this);
-  initialize();
+  initialize(store_events, store_pixels);
 
   maxBox = {ui->intMax00, ui->intMax01, ui->intMax02,
             ui->intMax10, ui->intMax11, ui->intMax12,
@@ -76,12 +86,13 @@ MainWindow::MainWindow(const Configuration & Config, const Calibration & calibra
   connect(ui->filterShowExcluded, &QCheckBox::clicked, this, &MainWindow::set_filter_excluded);
 
   setup_add_bin_boxes();
-  setup_time_limits();
+  setup_time_limits(start, end);
   setup_intensity_limits();
   setup_gradient_list();
   setup_calibration();
-  setup_data();
+  setup_data(output);
   setup();
+  setup_status_bar();
 }
 
 void MainWindow::setup_add_bin_boxes() {
@@ -114,28 +125,42 @@ void MainWindow::setup_add_bin_boxes() {
     }
 }
 
-void MainWindow::setup_time_limits(){
+void MainWindow::setup_time_limits(kafka::time::milliseconds start, std::optional<kafka::time::milliseconds> end){
   std::string date_time_format{"yyyy.MM.ddThh:mm:ss"};
   auto now = QDateTime::currentDateTimeUtc();
+  auto q_start = QDateTime::fromMSecsSinceEpoch(start.count());
+  auto q_end = end.has_value() ? QDateTime::fromMSecsSinceEpoch(end.value().count()) : now;
+
   for (auto & dt: {ui->timeBeginning, ui->timeEnding}){
     dt->setDisplayFormat(date_time_format.c_str());
-    dt->setDateTime(now);
-    dt->setMinimumDateTime(now.addDays(-28));
   }
+  ui->timeBeginning->setDateTime(q_start);
+  ui->timeBeginning->setMinimumDateTime(q_start.addDays(-28));
+  ui->timeEnding->setDateTime(q_end);
+  ui->timeEnding->setMaximumDateTime(q_end.addDays(28));
+
   connect(ui->timeBeginning, &QDateTimeEdit::dateTimeChanged, this, &MainWindow::set_time_early);
   connect(ui->timeEnding, &QDateTimeEdit::dateTimeChanged, this, &MainWindow::set_time_late);
+
+  if (now.msecsTo(q_start) > 5000 && q_end.msecsTo(now) < 0) {
+    // both the start and end times are in the past, so we expect that the user wanted a fixed time-window
+    // fixed == the boxes are disabled, which is what one wants for command-line specified times
+    time_status = Time::Fixed;
+    set_time_fixed();
+  }
 }
 
 
 void MainWindow::set_time_live(){
+  using kafka::time::milliseconds;
   time_status = Time::Live;
   auto now = QDateTime::currentDateTimeUtc();
   for (auto & dt: {ui->timeBeginning, ui->timeEnding}){
     dt->setDateTime(now);
     dt->setEnabled(false);
   }
-  consumer->Consumer->consumeForever();
-  consumer->Consumer->consumeFrom(now.toMSecsSinceEpoch());
+  consumer->consumeForever();
+  consumer->consumeFrom(milliseconds(now.toMSecsSinceEpoch()));
 }
 void MainWindow::set_time_historical(){
   time_status = Time::Historical;
@@ -144,24 +169,27 @@ void MainWindow::set_time_historical(){
   }
 }
 void MainWindow::set_time_fixed(){
+  using kafka::time::milliseconds;
   time_status = Time::Fixed;
   for (auto & dt: {ui->timeBeginning, ui->timeEnding}){
     dt->setEnabled(false);
   }
-  consumer->Consumer->consumeUntil(ui->timeEnding->dateTime().toMSecsSinceEpoch());
-  consumer->Consumer->consumeFrom(ui->timeBeginning->dateTime().toMSecsSinceEpoch());
+  consumer->consumeUntil(milliseconds(ui->timeEnding->dateTime().toMSecsSinceEpoch()));
+  consumer->consumeFrom(milliseconds(ui->timeBeginning->dateTime().toMSecsSinceEpoch()));
 }
 
 void MainWindow::set_time_early(const QDateTime & time){
+  using kafka::time::milliseconds;
   if (time_status == Time::Historical){
     reset();
-    consumer->consume_from(time.toMSecsSinceEpoch());
+    consumer->consumeFrom(milliseconds(time.toMSecsSinceEpoch()));
   }
 }
 
 void MainWindow::set_time_late(const QDateTime & time){
+  using kafka::time::milliseconds;
   if (time_status == Time::Historical){
-    consumer->consume_until(time.toMSecsSinceEpoch());
+    consumer->consumeUntil(milliseconds(time.toMSecsSinceEpoch()));
   }
 }
 
@@ -196,12 +224,22 @@ void MainWindow::setup_gradient_list(){
   ui->scaleButton->clicked(configuration.Plot.LogScale);
 }
 
-void MainWindow::initialize(){
+void MainWindow::initialize(bool store_events, bool store_pixels){
+  using namespace bifrost::data;
   auto tubes = configuration.Instrument.units_per_group;
   auto pixelation = configuration.Instrument.pixels_per_unit;
-  data = new ::bifrost::data::Manager(5, 9, tubes, pixelation, calibration);
-  plots = new PlotManager(ui->plotGrid, 3, 3);
-  max.resize(data->key_count());
+
+  // create the event data manager, which only stores histogram data by default
+  data = std::make_shared<Q::EventManager>(
+      PixelManager(5, 9, tubes, pixelation, calibration),
+      Q::HistogramManager(5, 9, calibration)
+      );
+  // here we want to store the pixels that are calculated:
+  data->storePixels(store_pixels);
+  data->storeEvents(store_events);
+
+  plots = std::make_unique<PlotManager>(ui->plotGrid, 3, 3);
+  max.resize(data->histograms().key_count());
   std::fill(max.begin(), max.end(), 0);
 }
 
@@ -217,12 +255,12 @@ void MainWindow::setup(){
 void MainWindow::timer_callback_window_update() {
   plot();
   if (time_status == Time::Live) ui->timeEnding->setDateTime(QDateTime::currentDateTimeUtc());
+  message_count->display(static_cast<int>(consumer->message_count()));
+  event_count->display(static_cast<int>(consumer->event_count()));
 }
 
 void MainWindow::setup_consumer(){
-    delete consumer;
-    consumer = new WorkerThread(data, configuration);
-    // caengraph.WThread = consumer;
+    consumer = std::make_unique<WorkerThread>(data, configuration);
     consumer->start();
 }
 
@@ -384,7 +422,8 @@ void MainWindow::plot_single(int arc, int triplet, int_t t){
         d = PlotManager::Dim::two;
     }
     plots->make_single(d, t);
-    auto key = data->key(arc, triplet, t);
+    auto & hists = data->qHistograms();
+    auto key = hists.key(arc, triplet, t);
     auto is_log = ui->scaleButton->isChecked();
     auto gradient = ui->colormapComboBox->currentText().toStdString();
     auto is_inverted = ui->colormapInvertedCheck->isChecked();
@@ -392,13 +431,13 @@ void MainWindow::plot_single(int arc, int triplet, int_t t){
     if (PlotManager::Dim::one == d){
       using ::bifrost::data::Filter;
       std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
-      if (ui->filter1Everything->isChecked()) all = data->data_1D(arc, triplet, t, Filter::none);
-      if (ui->filter1Included->isChecked()) included = data->data_1D(arc, triplet, t, Filter::positive);
-      if (ui->filter1Excluded->isChecked()) excluded = data->data_1D(arc, triplet, t, Filter::negative);
-      plots->plot_all_included_excluded(0, 0, data->axis(t), all, included, excluded, 0.0, intensity, is_log);
+      if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, t, Filter::none);
+      if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, triplet, t, Filter::positive);
+      if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, triplet, t, Filter::negative);
+      plots->plot_all_included_excluded(0, 0, hists.axis(t), all, included, excluded, 0.0, intensity, is_log);
     }
     if (PlotManager::Dim::two == d){
-        plots->plot(0, 0, data->data_2D(arc, triplet, t, plot_filter), 0.0, intensity, is_log, gradient, is_inverted, {}, {}, {});
+        plots->plot(0, 0, hists.data_2D(arc, triplet, t, plot_filter), 0.0, intensity, is_log, gradient, is_inverted, {}, {}, {});
     }
 }
 
@@ -412,16 +451,17 @@ void MainWindow::plot_one_type(int arc, int_t t){
   plots->make_all_same(d, t);
   auto is_log = ui->scaleButton->isChecked();
   using ::bifrost::data::Filter;
+  auto & hists = data->qHistograms();
   std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
   if (PlotManager::Dim::one == d){
     for (int i=0; i<3; ++i) {
       for (int j=0; j<3; ++j) {
-        auto key = data->key(arc, i*3+j, t);
+        auto key = hists.key(arc, i*3+j, t);
         auto intensity = 1.0 * max.at(key);
-        if (ui->filter1Everything->isChecked()) all = data->data_1D(arc, i*3+j, t, Filter::none);
-        if (ui->filter1Included->isChecked()) included = data->data_1D(arc, i*3+j, t, Filter::positive);
-        if (ui->filter1Excluded->isChecked()) excluded = data->data_1D(arc, i*3+j, t, Filter::negative);
-        plots->plot_all_included_excluded(i, j, data->axis(t), all, included, excluded, 0.0, intensity, is_log);
+        if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, i*3+j, t, Filter::none);
+        if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, i*3+j, t, Filter::positive);
+        if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, i*3+j, t, Filter::negative);
+        plots->plot_all_included_excluded(i, j, hists.axis(t), all, included, excluded, 0.0, intensity, is_log);
       }
     }
   }
@@ -430,8 +470,8 @@ void MainWindow::plot_one_type(int arc, int_t t){
     auto is_inverted = ui->colormapInvertedCheck->isChecked();
       for (int i=0; i<3; ++i) {
           for (int j=0; j<3; ++j) {
-            auto key = data->key(arc, i*3+j, t);
-            plots->plot(i, j, data->data_2D(arc, i*3+j, t, plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
+            auto key = hists.key(arc, i*3+j, t);
+            plots->plot(i, j, hists.data_2D(arc, i*3+j, t, plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
           }
       }
   }
@@ -443,20 +483,21 @@ void MainWindow::plot_one_triplet(int arc, int triplet){
   int i[]{0,0,0,1,1,1,2,2,2};
   int j[]{0,1,2,0,1,2,0,1,2};
   auto is_log = ui->scaleButton->isChecked();
+  auto & hists = data->qHistograms();
   std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
   for (int t: {0, 1, 2, 5, 8}){
-    auto key = data->key(arc, triplet, type_order[t]);
+    auto key = hists.key(arc, triplet, type_order[t]);
     auto intensity = 1.0 * max[key];
-    if (ui->filter1Everything->isChecked()) all = data->data_1D(arc, triplet, type_order[t], Filter::none);
-    if (ui->filter1Included->isChecked()) included = data->data_1D(arc, triplet, type_order[t], Filter::positive);
-    if (ui->filter1Excluded->isChecked()) excluded = data->data_1D(arc, triplet, type_order[t], Filter::negative);
-    plots->plot_all_included_excluded(i[t], j[t], data->axis(type_order[t]), all, included, excluded, 0.0, intensity, is_log);
+    if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, type_order[t], Filter::none);
+    if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, triplet, type_order[t], Filter::positive);
+    if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, triplet, type_order[t], Filter::negative);
+    plots->plot_all_included_excluded(i[t], j[t], hists.axis(type_order[t]), all, included, excluded, 0.0, intensity, is_log);
   }
   auto gradient = ui->colormapComboBox->currentText().toStdString();
   auto is_inverted = ui->colormapInvertedCheck->isChecked();
   for (int t: {3, 4, 6, 7}){
-    auto key = data->key(arc, triplet, type_order[t]);
-    plots->plot(i[t], j[t], data->data_2D(arc, triplet, type_order[t], plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
+    auto key = hists.key(arc, triplet, type_order[t]);
+    plots->plot(i[t], j[t], hists.data_2D(arc, triplet, type_order[t], plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
   }
 }
 
@@ -466,14 +507,6 @@ void MainWindow::reset(){
 
 void MainWindow::pause_toggled(bool checked)
 {
-  std::cout << "Intensity limits" << std::endl;
-  for (key_t key=0; key < data->key_count(); ++key){
-    auto value = max[key];
-    std::stringstream stype;
-    stype << data->key_type(key);
-    fmt::print("{:1d} {:1d} {:6s} ({}, {})\n", data->key_arc(key), data->key_triplet(key), stype.str(), 0, value);
-  }
-  std::cout << "pause button is now " << (checked ? "on" : "off") << std::endl;
   if (!checked) cycle();
 }
 
@@ -496,63 +529,69 @@ void MainWindow::autoscale_toggled(bool check)
 }
 
 void MainWindow::set_intensity_limits_triplets(){
+  auto & hists = data->qHistograms();
   for (int triplet=0; triplet<9; ++triplet){
-    auto key = data->key(_fixed_arc, triplet, _fixed_type);
+    auto key = hists.key(_fixed_arc, triplet, _fixed_type);
     maxBox[triplet]->setValue(max.at(key));
   }
 }
 
 void MainWindow::get_intensity_limits_triplets(){
+  auto & hists = data->qHistograms();
   for (int triplet=0; triplet<9; ++triplet){
-    auto key = data->key(_fixed_arc, triplet, _fixed_type);
+    auto key = hists.key(_fixed_arc, triplet, _fixed_type);
     max[key] = maxBox[triplet]->value();
   }
 }
 
 void MainWindow::auto_intensity_limits_triplets(){
+  auto & hists = data->qHistograms();
   for (int triplet=0; triplet<9; ++triplet){
-    auto key = data->key(_fixed_arc, triplet, _fixed_type);
-    max[key] = static_cast<int>(data->max(key, plot_filter));
+    auto key = hists.key(_fixed_arc, triplet, _fixed_type);
+    max[key] = static_cast<int>(hists.max(key, plot_filter));
   }
 }
 
 void MainWindow::set_intensity_limits_types(){
   int_t types[]{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
+  auto & hists = data->qHistograms();
   for (int type=0; type<9; ++type){
-    auto key = data->key(_fixed_arc, _fixed_triplet, types[type]);
+    auto key = hists.key(_fixed_arc, _fixed_triplet, types[type]);
     maxBox[type]->setValue(max.at(key));
   }
 }
 
 void MainWindow::get_intensity_limits_types(){
   int_t types[]{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
+  auto & hists = data->qHistograms();
   for (int type=0; type<9; ++type){
-    auto key = data->key(_fixed_arc, _fixed_triplet, types[type]);
+    auto key = hists.key(_fixed_arc, _fixed_triplet, types[type]);
     max[key] = maxBox[type]->value();
   }
 }
 
 void MainWindow::auto_intensity_limits_types(){
   int_t types[]{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
+  auto & hists = data->qHistograms();
   for (auto & type : types){
-    auto key = data->key(_fixed_arc, _fixed_triplet, type);
-    max[key] = static_cast<int>(data->max(key, plot_filter));
+    auto key = hists.key(_fixed_arc, _fixed_triplet, type);
+    max[key] = static_cast<int>(hists.max(key, plot_filter));
   }
 }
 
 void MainWindow::set_intensity_limits_singular(){
-  auto key = data->key(_fixed_arc, _fixed_triplet, _fixed_type);
+  auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
   maxBox[0]->setValue(max.at(key));
 }
 
 void MainWindow::get_intensity_limits_singular(){
-  auto key = data->key(_fixed_arc, _fixed_triplet, _fixed_type);
+  auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
   max[key] = maxBox[0]->value();
 }
 
 void MainWindow::auto_intensity_limits_singular(){
-  auto key = data->key(_fixed_arc, _fixed_triplet, _fixed_type);
-  max[key] = static_cast<int>(data->max(key, plot_filter));
+  auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
+  max[key] = static_cast<int>(data->qHistograms().max(key, plot_filter));
 }
 
 void MainWindow::set_intensity_limits() {
@@ -583,4 +622,36 @@ void MainWindow::get_intensity_limits(){
   if (pt == PlotType::Types) get_intensity_limits_types();
   if (pt == PlotType::Triplets) get_intensity_limits_triplets();
   if (pt == PlotType::Singular) get_intensity_limits_singular();
+}
+
+
+void MainWindow::setup_status_bar(){
+  statusBar()->showMessage(tr("Ready"), 3000);
+  // add permanent status bar items which get updated as messages arrive
+  auto *message_status = new QLabel();
+  message_status->setText("Messages: ");
+  message_status->setAlignment(Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter);
+  statusBar()->addPermanentWidget(message_status);
+  message_count = std::make_unique<QLCDNumber>();
+  message_count->setSegmentStyle(QLCDNumber::SegmentStyle::Flat);
+  message_count->setFrameStyle(QFrame::NoFrame);
+  message_count->setDigitCount(10);
+  message_count->setMode(QLCDNumber::Mode::Dec);
+  message_count->display(0);
+  statusBar()->addPermanentWidget(&*message_count);
+
+  auto *event_status = new QLabel();
+  event_status->setText("Events: ");
+  event_status->setAlignment(Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter);
+  statusBar()->addPermanentWidget(event_status);
+
+  event_count = std::make_unique<QLCDNumber>();
+  event_count->setSegmentStyle(QLCDNumber::SegmentStyle::Flat);
+  event_count->setFrameStyle(QFrame::NoFrame);
+  event_count->setDigitCount(10);
+  event_count->setMode(QLCDNumber::Mode::Dec);
+//  event_count->display(0);
+  statusBar()->addPermanentWidget(&*event_count);
+
+
 }

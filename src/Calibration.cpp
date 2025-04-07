@@ -1,9 +1,9 @@
 // Copyright (C) 2025 European Spallation Source, ERIC. See LICENSE file
 //===----------------------------------------------------------------------===//
-//
+///
 /// \file
-//
-/// \brief Calibration information for the BIFROST detector
+///
+/// \brief Calibration information for a detector consisting of multiple groups
 //===----------------------------------------------------------------------===//
 #include <iomanip>
 #include <sstream>
@@ -155,11 +155,7 @@ void Calibration::setGroups(Groups groups) {
     division[el.index] = {el.left, el.right};
     polynomial[el.index] = {el.c0.value_or(0), el.c1.value_or(0), el.c2.value_or(0), el.c3.value_or(0)};
   }
-  json_out = nlohmann::json {
-    {"groupindex", group_in.index},
-    {"intervals", division},
-    {"polynomials", polynomial}
-  };
+  json_out = nlohmann::json {{"groupindex", group_in.index}, {"intervals", division}, {"polynomials", polynomial}};
 }
 
 
@@ -190,17 +186,15 @@ void Calibration::setGroups(Groups groups) {
 ///\note The name of this function is set by the nlohmann::json library
 ///      https://json.nlohmann.me/api/adl_serializer/to_json/
 [[maybe_unused]] void to_json(nlohmann::json & json_out, const Calibration & calibration_in){
-  json_out = nlohmann::json{
-    {"Calibration", {
-      {"version", calibration_in.version()},
-      {"date", calibration_in.dateString()},
-      {"info", calibration_in.info()},
-      {"instrument", calibration_in.instrument()},
-      {"groups", calibration_in.groupCount()},
-      {"groupsize", calibration_in.elementCount()},
-      {"parameters", calibration_in.groups()}}
-    }
-  };
+  json_out = nlohmann::json{{"Calibration", {
+    {"version", calibration_in.version()},
+    {"date", calibration_in.dateString()},
+    {"info", calibration_in.info()},
+    {"instrument", calibration_in.instrument()},
+    {"groups", calibration_in.groupCount()},
+    {"groupsize", calibration_in.elementCount()},
+    {"parameters", calibration_in.groups()}}
+  }};
 }
 
 

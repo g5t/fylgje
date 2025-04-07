@@ -6,7 +6,7 @@
 /// \brief Calibration information for a detector consisting of multiple groups
 //===----------------------------------------------------------------------===//
 #pragma once
-#include <JsonFile.h>
+#include "JsonFile.h"
 #include <string>
 #include <iomanip>
 #include <optional>

@@ -6,8 +6,8 @@
 /// \brief using nlohmann json parser to read configurations from file
 //===----------------------------------------------------------------------===//
 
-#include <KafkaConfig.h>
-#include <JsonFile.h>
+#include "KafkaConfig.h"
+#include "JsonFile.h"
 #include <condition_variable>
 #include <iostream>
 #include <cstdio>

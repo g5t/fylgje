@@ -15,12 +15,15 @@
 
 #include "WorkerThread.h"
 #include "PlotManager.h"
-#include "DataManager.h"
+
+#include "QEventManager.h"
+
 #include "TwoSpinBox.h"
 #include "TableItemTypes.h"
 #include "Cycles.h"
 #include "Configuration.h"
 #include "Calibration.h"
+#include "Time.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -37,8 +40,18 @@ class MainWindow : public QMainWindow
     enum class Time {Fixed, Historical, Live};
     enum class PlotType {Unknown, Types, Triplets, Singular};
 public:
-    MainWindow(const Configuration & Config, const Calibration & calibration, QWidget *parent = nullptr);
-    ~MainWindow();
+    MainWindow(
+        const Configuration & Config,
+        const Calibration & calibration,
+        kafka::time::milliseconds start,
+        std::optional<kafka::time::milliseconds> end,
+        const std::optional<std::string> & output,
+        bool store_events,
+        bool store_pixels,
+        QWidget *parent = nullptr
+    );
+
+    ~MainWindow() override;
 
     void set_arc_1(){set_arc(0);}
     void set_arc_2(){set_arc(1);}
@@ -66,16 +79,16 @@ public:
     void set_int_xt(){set_int(int_t::xt);}
     void set_int_Pt(){set_int(int_t::pt);}
 
-    void set_bins_a_1d(int m){data->set_bins_1d(int_t::a, m); set_intensity_limits();}
-    void set_bins_b_1d(int m){data->set_bins_1d(int_t::b, m); set_intensity_limits();}
-    void set_bins_p_1d(int m){data->set_bins_1d(int_t::p, m); set_intensity_limits();}
-    void set_bins_x_1d(int m){data->set_bins_1d(int_t::x, m); set_intensity_limits();}
-    void set_bins_t_1d(int m){data->set_bins_1d(int_t::t, m); set_intensity_limits();}
-    void set_bins_a_2d(int m){data->set_bins_2d(int_t::a, m); set_intensity_limits();}
-    void set_bins_b_2d(int m){data->set_bins_2d(int_t::b, m); set_intensity_limits();}
-    void set_bins_p_2d(int m){data->set_bins_2d(int_t::p, m); set_intensity_limits();}
-    void set_bins_x_2d(int m){data->set_bins_2d(int_t::x, m); set_intensity_limits();}
-    void set_bins_t_2d(int m){data->set_bins_2d(int_t::t, m); set_intensity_limits();}
+    void set_bins_a_1d(int m){data->histograms().set_bins_1d(int_t::a, m); set_intensity_limits();}
+    void set_bins_b_1d(int m){data->histograms().set_bins_1d(int_t::b, m); set_intensity_limits();}
+    void set_bins_p_1d(int m){data->histograms().set_bins_1d(int_t::p, m); set_intensity_limits();}
+    void set_bins_x_1d(int m){data->histograms().set_bins_1d(int_t::x, m); set_intensity_limits();}
+    void set_bins_t_1d(int m){data->histograms().set_bins_1d(int_t::t, m); set_intensity_limits();}
+    void set_bins_a_2d(int m){data->histograms().set_bins_2d(int_t::a, m); set_intensity_limits();}
+    void set_bins_b_2d(int m){data->histograms().set_bins_2d(int_t::b, m); set_intensity_limits();}
+    void set_bins_p_2d(int m){data->histograms().set_bins_2d(int_t::p, m); set_intensity_limits();}
+    void set_bins_x_2d(int m){data->histograms().set_bins_2d(int_t::x, m); set_intensity_limits();}
+    void set_bins_t_2d(int m){data->histograms().set_bins_2d(int_t::t, m); set_intensity_limits();}
 
     void set_time_live();
     void set_time_historical();
@@ -105,10 +118,10 @@ private:
   // plot all intensity plots for the specified triplet
   void plot_one_triplet(int arc, int triplet);
 
-  void initialize();
+  void initialize(bool store_events, bool store_pixels);
   void setup();
   void setup_add_bin_boxes();
-  void setup_time_limits();
+  void setup_time_limits(kafka::time::milliseconds start, std::optional<kafka::time::milliseconds> end);
   void setup_intensity_limits();
   void setup_gradient_list();
   void setup_consumer();
@@ -156,8 +169,10 @@ private:
   void save_calibration();
   void load_calibration();
 
-  void setup_data();
+  void setup_data(const std::optional<std::string> & output);
   void save_data();
+
+  void setup_status_bar();
 
 
 private:
@@ -176,10 +191,10 @@ private:
     std::string broker;
     std::string topic;
 
-    ::bifrost::data::Manager * data;
+    std::shared_ptr<bifrost::data::Q::EventManager> data;
     ::bifrost::data::Filter plot_filter{::bifrost::data::Filter::none};
-    PlotManager * plots;
-    WorkerThread * consumer{};
+    std::unique_ptr<PlotManager> plots; // TODO use unique_ptr
+    std::unique_ptr<WorkerThread> consumer{}; // TODO use unique_ptr
 
     /// \brief configuration obtained from main()
     Configuration configuration;
@@ -207,5 +222,9 @@ private:
     QTableWidget * calibration_table{nullptr};
     std::vector<QTableWidgetItem *> calibration_table_items;
     std::vector<std::pair<std::string, std::function<QTableWidgetItem*(int,int,int,CalibrationUnit *)>>> calibration_table_columns;
+
+    std::string default_filename{""}; // let the user choose the filename graphically, or set a default from the command line
+
+    std::unique_ptr<QLCDNumber> message_count, event_count;
 };
 #endif // MAINWINDOW_H

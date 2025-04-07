@@ -8,13 +8,25 @@
 #include "AppWindow.h"
 #include "./ui_AppWindow.h"
 
-void MainWindow::setup_data(){
+void MainWindow::setup_data(const std::optional<std::string> & output){
   connect(ui->actionSaveHDF5, &QAction::triggered, this, &MainWindow::save_data);
+
+  if (output.has_value()){
+    // if output isn't a path, make it one relative to the current working directory
+    auto p = std::filesystem::path(output.value());
+    auto d = p.parent_path();
+    if (d.empty()){
+      auto cwd = std::filesystem::current_path();
+      p = cwd / p;
+    }
+    default_filename = p.string();
+  }
 }
 
 void MainWindow::save_data() {
   using namespace std::filesystem;
-  auto q_filename = QFileDialog::getSaveFileName(this, tr("Save Data"), "", tr("HDF5 files (*.h5 *.H5 *.hdf5 *.HDF5)"));
+  auto q_default = QString::fromStdString(default_filename);
+  auto q_filename = QFileDialog::getSaveFileName(this, tr("Save Data"), q_default, tr("HDF5 files (*.h5 *.H5 *.hdf5 *.HDF5)"));
   auto p = path(q_filename.toStdString());
   if (!p.has_filename()) return;
   auto ext = std::string(p.extension());

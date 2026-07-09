@@ -58,6 +58,20 @@ namespace bifrost::data {
       std::fill(pixel_data.begin(), pixel_data.end(), 0);
     }
 
+    ///\brief Read-only access to the raw pixel count vector
+    const data_t & counts() const { return pixel_data; }
+
+    ///\brief Number of arcs
+    int num_arcs() const { return arcs; }
+    ///\brief Number of triplets per arc
+    int num_triplets() const { return triplets; }
+    ///\brief Number of tubes per triplet
+    int num_tubes() const { return tubes_per_triplet; }
+    ///\brief Number of pixels per tube
+    int num_pixels() const { return pixels_per_tube; }
+    ///\brief Maximum count across all pixels
+    int max_count() const { return *std::max_element(pixel_data.begin(), pixel_data.end()); }
+
     ///\brief Add a new data point to the appropriate pixel
     bool add(int arc, int triplet, int a, int b);
 

@@ -7,14 +7,29 @@
 //===----------------------------------------------------------------------===//
 #include "PlotManager.h"
 
+// Copyright (C) 2025 European Spallation Source, ERIC. See LICENSE file
+//===----------------------------------------------------------------------===//
+//
+/// \file
+//
+/// \brief Implementation of plot interface for Fylgje
+//===----------------------------------------------------------------------===//
+#include "PlotManager.h"
+#include "HistogramManager.h"
+
+// ── make_single / make_all_same / make_multi ─────────────────────────────────
+
 void PlotManager::make_single(Dim d, type_t t){
   if (layout->rowCount() != 1 || layout->columnCount() != 1 || d != dims[0]){
     empty_layout();
-    // why is this _always_ 3x3?
-    // std::cout << layout->columnCount() << " " << layout->rowCount() << std::endl;
-    if (Dim::one == d) return make_1D(0, 0, false, t);
-    if (Dim::two == d) return make_2D(0, 0, false, t);
-    // std::cout << layout->columnCount() << " " << layout->rowCount() << std::endl;
+    if (Dim::one == d) make_1D(0, 0, false, t);
+    if (Dim::two == d) make_2D(0, 0, false, t);
+  }
+  // In the single-plot view give axes full room to show their labels
+  auto k = key(0, 0);
+  if (plots.count(k)){
+    set_axis_labels(0, 0);
+    plots[k]->axisRect()->setAutoMargins(QCP::msAll);
   }
 }
 
@@ -22,11 +37,9 @@ void PlotManager::make_all_same(Dim d, type_t t){
   empty_layout();
   for (int i=0; i<3; ++i) {
     for (int j=0; j<3; ++j) {
-      // if the plot exists but is the wrong type, remove it.
       if (layout->itemAtPosition(i, j) && d !=dims[key(i, j)]){
         remove(i, j);
       }
-      // if the plot doesn't exist create it
       if (!layout->itemAtPosition(i, j)) {
         (Dim::one == d) ? make_1D(i, j, false, t) : make_2D(i, j, false, t);
       }
@@ -35,26 +48,21 @@ void PlotManager::make_all_same(Dim d, type_t t){
 }
 
 void PlotManager::make_multi(std::array<type_t, 9> ts){
-  /*
-   * 1 1 1
-   * 2 2 -
-   * 2 2 -
-   */
   empty_layout();
   for (int i=0; i<3; ++i) {
     for (int j=0; j<3; ++j) {
       Dim t{i == 0 || j > 1 ? Dim::one : Dim::two};
-      // if the plot exists but is the wrong type, remove it.
       if (layout->itemAtPosition(i, j) && t !=dims[key(i, j)]){
         remove(i, j);
       }
-      // if the plot doesn't exist create it
       if (!layout->itemAtPosition(i, j)) {
         (Dim::one == t) ? make_1D(i, j, (i>0) & (j>1), ts[i*3 + j]) : make_2D(i, j, false, ts[i*3 + j]);
       }
     }
   }
 }
+
+// ── plot() overloads ──────────────────────────────────────────────────────────
 
 void PlotManager::plot(int i, int j, const std::vector<double> & x, const std::vector<double> & y, double min, double max, bool is_log){
   QVector<double> q_x(x.begin(), x.end());
@@ -63,18 +71,20 @@ void PlotManager::plot(int i, int j, const std::vector<double> & x, const std::v
 }
 
 void PlotManager::plot(int i, int j, const QVector<double> * x, const QVector<double> * y, double min, double max, bool is_log){
-  // 1-D data plotting
   auto k = key(i, j);
   if (!dims.count(k) || dims.at(k) != Dim::one) return;
   auto g = lines.at(k);
   g->setData(*x, *y);
   auto p = plots.at(k);
-  QCPAxis * independent{flipped[k] ? p->yAxis : p->xAxis};
-  independent->setRange(x->front(), x->back());
-  // apply scaling
-  QCPAxis * ax{flipped[k] ? p->xAxis : p->yAxis};
-  ax->setScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
-  ax->setRange(min - (max - min) / 40, max + (max - min) / 20);
+  if (!user_zoomed.count(k) || !user_zoomed.at(k)) {
+    in_range_update = true;
+    QCPAxis * independent{flipped[k] ? p->yAxis : p->xAxis};
+    independent->setRange(x->front(), x->back());
+    QCPAxis * ax{flipped[k] ? p->xAxis : p->yAxis};
+    ax->setScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
+    ax->setRange(min - (max - min) / 40, max + (max - min) / 20);
+    in_range_update = false;
+  }
 }
 
 void PlotManager::plot_all_included_excluded(int i, int j, const std::vector<double> & std_x,
@@ -83,7 +93,6 @@ void PlotManager::plot_all_included_excluded(int i, int j, const std::vector<dou
                                 const std::optional<std::vector<double>> & excluded,
                                 double min, double max, bool is_log) {
   using ::bifrost::data::Filter;
-  // 1-D data plotting
   auto k = key(i, j);
   if (!dims.count(k) || dims.at(k) != Dim::one) return;
 
@@ -99,12 +108,15 @@ void PlotManager::plot_all_included_excluded(int i, int j, const std::vector<dou
   }
 
   auto p = plots.at(k);
-  QCPAxis * independent{flipped[k] ? p->yAxis : p->xAxis};
-  independent->setRange(x.front(), x.back());
-  // apply scaling
-  QCPAxis * ax{flipped[k] ? p->xAxis : p->yAxis};
-  ax->setScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
-  ax->setRange(min - (max - min) / 40, max + (max - min) / 20);
+  if (!user_zoomed.count(k) || !user_zoomed.at(k)) {
+    in_range_update = true;
+    QCPAxis * independent{flipped[k] ? p->yAxis : p->xAxis};
+    independent->setRange(x.front(), x.back());
+    QCPAxis * ax{flipped[k] ? p->xAxis : p->yAxis};
+    ax->setScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
+    ax->setRange(min - (max - min) / 40, max + (max - min) / 20);
+    in_range_update = false;
+  }
 }
 
 void PlotManager::plot(int i, int j, QCPColorMapData * data, double min, double max, bool is_log,
@@ -116,11 +128,14 @@ void PlotManager::plot(int i, int j, QCPColorMapData * data, double min, double 
   if (!dims.count(k) || dims.at(k) != Dim::two) return;
   if (!images.count(k)) return;
   auto im = images.at(k);
-  // Why does setData _require_ a mutable pointer?
   im->setData(data);
   auto p = plots.at(k);
-  p->xAxis->setRange(0, ::bifrost::data::BIN2D);
-  p->yAxis->setRange(0, ::bifrost::data::BIN2D);
+  if (!user_zoomed.count(k) || !user_zoomed.at(k)) {
+    in_range_update = true;
+    p->xAxis->setRange(0, ::bifrost::data::BIN2D);
+    p->yAxis->setRange(0, ::bifrost::data::BIN2D);
+    in_range_update = false;
+  }
   im->setGradient(named_colormap(gradient, is_inverted));
   im->setDataScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
   im->setDataRange(QCPRange(min, max));
@@ -154,6 +169,45 @@ void PlotManager::plot(int i, int j, QCPColorMapData * data, double min, double 
   }
 }
 
+// ── Zoom reset ────────────────────────────────────────────────────────────────
+
+void PlotManager::reset_zoom(int i, int j) {
+  auto k = key(i, j);
+  user_zoomed.erase(k);
+  // 2-D: reset to the full BIN2D range immediately so the user sees the change at once
+  if (dims.count(k) && dims.at(k) == Dim::two && plots.count(k)) {
+    in_range_update = true;
+    plots[k]->xAxis->setRange(0, ::bifrost::data::BIN2D);
+    plots[k]->yAxis->setRange(0, ::bifrost::data::BIN2D);
+    in_range_update = false;
+  }
+  // 1-D ranges are restored on the next timer-driven plot() call
+}
+
+// ── Per-cell accessors ────────────────────────────────────────────────────────
+
+PlotManager::Dim PlotManager::dim(int i, int j) const {
+  auto k = key(i, j);
+  return dims.count(k) ? dims.at(k) : Dim::none;
+}
+PlotManager::type_t PlotManager::type_at(int i, int j) const {
+  auto k = key(i, j);
+  return types.count(k) ? types.at(k) : type_t::unknown;
+}
+bool PlotManager::is_flipped(int i, int j) const {
+  auto k = key(i, j);
+  return flipped.count(k) && flipped.at(k);
+}
+QCustomPlot * PlotManager::plot_at(int i, int j) const {
+  auto k = key(i, j);
+  return plots.count(k) ? plots.at(k) : nullptr;
+}
+QCPColorMap * PlotManager::image_at(int i, int j) const {
+  auto k = key(i, j);
+  return images.count(k) ? images.at(k) : nullptr;
+}
+
+// ── make_plot / make_1D / make_2D / set_axis_labels ──────────────────────────
 
 void PlotManager::make_plot(int i, int j, bool flip, type_t t){
   auto item = layout->itemAtPosition(i, j);
@@ -167,6 +221,28 @@ void PlotManager::make_plot(int i, int j, bool flip, type_t t){
     plots[key(i, j)] = p;
     types[key(i, j)] = t;
     flipped[key(i, j)] = flip;
+
+    // Zoom / pan
+    p->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
+
+    // Detect user-initiated zoom: axis range changes that are NOT from our own plot() calls
+    auto k_val = key(i, j);
+    auto detect = [this, k_val](const QCPRange &){
+      if (!in_range_update) user_zoomed[k_val] = true;
+    };
+    QObject::connect(p->xAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), p, detect);
+    QObject::connect(p->yAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), p, detect);
+
+    // Forward mouse events to the registered callbacks
+    QObject::connect(p, &QCustomPlot::mousePress, p, [this, i, j](QMouseEvent * ev){
+      if (click_callback) click_callback(i, j, ev);
+    });
+    QObject::connect(p, &QCustomPlot::mouseMove, p, [this, i, j](QMouseEvent * ev){
+      if (hover_callback) hover_callback(i, j, ev);
+    });
+    QObject::connect(p, &QCustomPlot::mouseDoubleClick, p, [this, i, j](QMouseEvent *){
+      if (double_click_callback) double_click_callback(i, j);
+    });
   }
 }
 
@@ -174,6 +250,7 @@ void PlotManager::make_1D(int i, int j, bool flip, type_t t){
   using ::bifrost::data::Filter;
   auto k = key(i, j);
   dims[k] = Dim::one;
+  in_range_update = true;   // block initial setup from marking this as user-zoomed
   make_plot(i, j, flip, t);
 
   plots[k]->yAxis->setTicks(true);
@@ -181,6 +258,7 @@ void PlotManager::make_1D(int i, int j, bool flip, type_t t){
   plots[k]->yAxis->setTickLabels(true);
   plots[k]->xAxis->setTickLabels(true);
   plots[k]->axisRect()->setupFullAxesBox();
+  in_range_update = false;
 
   std::vector<std::pair<Filter, QColor>> filter_color{
       {{Filter::none, Qt::black}, {Filter::positive, Qt::darkGreen}, {Filter::negative, Qt::darkRed}}
@@ -191,17 +269,19 @@ void PlotManager::make_1D(int i, int j, bool flip, type_t t){
     lines[lk]->setLineStyle(QCPGraph::LineStyle::lsStepCenter);
     lines[lk]->setPen(QPen(color));
   }
-  //plots[k]->setInteractions(QCP::iRangeDrag| QCP::iRangeZoom | QCP::iSelectPlottables);
+  set_axis_labels(i, j);
 }
 
 void PlotManager::make_2D(int i, int j, bool flip, type_t t){
   using ::bifrost::data::Filter;
   dims[key(i, j)] = Dim::two;
+  in_range_update = true;   // block initial setup from marking this as user-zoomed
   make_plot(i, j, flip, t);
   auto p = plots[key(i, j)];
   p->xAxis->setRange(0, n2);
   p->yAxis->setRange(0, n2);
   p->axisRect()->setupFullAxesBox();
+  in_range_update = false;
 
   auto m = new QCPColorMap(flip ? p->yAxis : p->xAxis, flip ? p->xAxis : p->yAxis);
   m->data()->setSize(n2, n2);
@@ -215,7 +295,6 @@ void PlotManager::make_2D(int i, int j, bool flip, type_t t){
   m->rescaleDataRange();
   images[key(i, j)] = m;
 
-  // abuse the Filter enum to also specify tubes
   std::vector<std::pair<Filter, QColor>> filter_color{
       {{Filter::none, Qt::green}, {Filter::positive, Qt::yellow}, {Filter::negative, Qt::magenta}}
   };
@@ -225,8 +304,27 @@ void PlotManager::make_2D(int i, int j, bool flip, type_t t){
     polygons[pk]->setLineStyle(QCPCurve::LineStyle::lsLine);
     polygons[pk]->setPen(QPen(color));
   }
+  set_axis_labels(i, j);
 }
 
+void PlotManager::set_axis_labels(int i, int j) {
+  auto k = key(i, j);
+  if (!plots.count(k) || !types.count(k)) return;
+  auto names = ::bifrost::data::axes_names(types.at(k));
+  bool flip = flipped.count(k) && flipped.at(k);
+  auto * p = plots.at(k);
+  if (dims.at(k) == Dim::one) {
+    QString var = names.empty() ? "" : QString::fromStdString(names[0]);
+    (flip ? p->yAxis : p->xAxis)->setLabel(var);
+    (flip ? p->xAxis : p->yAxis)->setLabel("Count");
+  } else if (dims.at(k) == Dim::two && names.size() >= 2) {
+    // flip: colormap key=yAxis (names[0]), value=xAxis (names[1])
+    (flip ? p->yAxis : p->xAxis)->setLabel(QString::fromStdString(names[0]));
+    (flip ? p->xAxis : p->yAxis)->setLabel(QString::fromStdString(names[1]));
+  }
+}
+
+// ── named_colormap ────────────────────────────────────────────────────────────
 
 QCPColorGradient named_colormap(std::string_view name, bool invert){
   auto grad = QCPColorGradient();

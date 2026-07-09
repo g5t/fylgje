@@ -38,6 +38,10 @@ std::tuple<double, uint32_t, uint32_t> frame_time(uint32_t pulse_hi, uint32_t pu
     time = converter(prev_hi, prev_lo);
     p_hi = prev_hi;
     p_lo = prev_lo;
+  } else {
+    // Hopefully impossible case
+    p_hi = 0;
+    p_lo = 0;
   }
   return {time, p_hi, p_lo};
 }

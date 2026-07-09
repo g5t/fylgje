@@ -20,7 +20,7 @@ int bifrost::data::PixelManager::pixel(int arc, int triplet, int a, int b) const
   auto cor_pos = calibration.posCorrection(g, tube, calibration.unitPosition(g, tube,  pos)); // in range (0, 1)
   // corrected position in (0.0, 1.0) is mapped to a tube pixel in (0, pixels_per_tube - 1)
   // its offset by which tube it is, which triplet its in, and which arc its in
-  int offset = pixels_per_tube * arc + pixels_per_tube * triplet + pixels_per_tube_arc * tube;
+  int offset = pixels_per_arc * arc + pixels_per_tube_arc * tube + pixels_per_tube * triplet;
   // and note that valid pixels index from 1 -- not 0.
   return 1 + offset + static_cast<int>((pixels_per_tube - 1) * cor_pos);
 }
@@ -80,7 +80,7 @@ void bifrost::data::PixelManager::save_to(const hdf5::node::Group & parent) cons
   auto datatype = hdf5::datatype::create<int>();
   // and we know their final size already, so use contiguous layout
   hdf5::property::DatasetCreationList datasetCreationList;
-  datasetCreationList.layout(hdf5::property::DatasetLayout::CONTIGUOUS);
+  datasetCreationList.layout(hdf5::property::DatasetLayout::Contiguous);
 
   auto dimensions = hdf5::Dimensions({pixel_data.size()});
   auto dataspace = hdf5::dataspace::Simple(dimensions);
@@ -110,7 +110,7 @@ void bifrost::data::PixelManager::save_to(const std::filesystem::path & file, co
     if (!hdf5::file::is_hdf5_file(std::string(file))) {
       throw std::runtime_error(fmt::format("{} is not an HDF5 file", std::string(file)));
     }
-    hdf5_file = hdf5::file::open(std::string(file), hdf5::file::AccessFlags::READWRITE);
+    hdf5_file = hdf5::file::open(std::string(file), hdf5::file::AccessFlags::ReadWrite);
   } else if (status.type() == fs::file_type::not_found){
     hdf5_file = hdf5::file::create(std::string(file));
   } else {

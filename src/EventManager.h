@@ -49,9 +49,7 @@ namespace bifrost::data {
     }
 
     void clear() {
-      if (store_pixels){
-        pixel_manager.clear();
-      }
+      pixel_manager.clear();
       if (histogram_manager.has_value()){
         histogram_manager->clear();
       }
@@ -69,6 +67,8 @@ namespace bifrost::data {
       }
       throw std::runtime_error("No histogram manager available");
     }
+
+    const PixelManager & pixels() const { return pixel_manager; }
 
     void save_to(const hdf5::node::Group & group) const;
     void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;

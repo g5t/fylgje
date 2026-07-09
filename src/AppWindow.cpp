@@ -245,6 +245,8 @@ void MainWindow::initialize(bool store_events, bool store_pixels){
 
 void MainWindow::setup(){
     setup_consumer();
+    setup_overview();
+    setup_detailed_interactions();
 //
     /// Update timer
     auto *timer = new QTimer(this);
@@ -254,6 +256,7 @@ void MainWindow::setup(){
 
 void MainWindow::timer_callback_window_update() {
   plot();
+  plot_overview();
   if (time_status == Time::Live) ui->timeEnding->setDateTime(QDateTime::currentDateTimeUtc());
   message_count->display(static_cast<int>(consumer->message_count()));
   event_count->display(static_cast<int>(consumer->event_count()));

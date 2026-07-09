@@ -19,7 +19,7 @@ bool bifrost::data::EventManager::add(const bifrost::message_t & message){
   auto arc_ = bifrost::arc(message.group);
   auto triplet_ = bifrost::triplet(message.fiber, message.group);
   auto allowed = pixel_manager.includes(arc_, triplet_, message.a, message.b);
-  if (store_pixels && allowed){
+  if (allowed){
     pixel_manager.add(arc_, triplet_, message.a, message.b);
   }
   return !histogram_manager.has_value() || histogram_manager->add(message, allowed);
@@ -47,7 +47,7 @@ void bifrost::data::EventManager::save_to(const hdf5::node::Group & parent) cons
   auto compound = bifrost::message_type();
   // and we know their final size already, so use contiguous layout
   hdf5::property::DatasetCreationList datasetCreationList;
-  datasetCreationList.layout(hdf5::property::DatasetLayout::CONTIGUOUS);
+  datasetCreationList.layout(hdf5::property::DatasetLayout::Contiguous);
 
   if (store_events) {
     auto message_dataset = group.create_dataset("messages", compound, message_dataspace, datasetCreationList);
@@ -82,7 +82,7 @@ void bifrost::data::EventManager::save_to(const std::filesystem::path & file, co
     if (!hdf5::file::is_hdf5_file(std::string(file))) {
       throw std::runtime_error(fmt::format("{} is not an HDF5 file", std::string(file)));
     }
-    hdf5_file = hdf5::file::open(std::string(file), hdf5::file::AccessFlags::READWRITE);
+    hdf5_file = hdf5::file::open(std::string(file), hdf5::file::AccessFlags::ReadWrite);
   } else if (status.type() == fs::file_type::not_found){
     hdf5_file = hdf5::file::create(std::string(file));
   } else {

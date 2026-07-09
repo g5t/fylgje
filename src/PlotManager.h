@@ -25,6 +25,11 @@ public:
   using layout_t = QGridLayout;
   enum class Dim {none, one, two};
 
+  /// Callback type for mouse-press and mouse-move events on individual plots
+  using mouse_cb_t = std::function<void(int i, int j, QMouseEvent *)>;
+  /// Callback type for double-click events (receives cell coords only)
+  using dbl_cb_t   = std::function<void(int i, int j)>;
+
   PlotManager(layout_t * l, int n1, int n2): layout(l), n1(n1), n2(n2) {
       dims[0] = Dim::none;
   }
@@ -59,6 +64,21 @@ public:
             const std::optional<std::vector<std::pair<double, double>>> & center,
             const std::optional<std::vector<std::pair<double, double>>> & right);
 
+  // ── Mouse-interaction hooks ──────────────────────────────────────────────
+  void set_click_callback(mouse_cb_t cb)       { click_callback = std::move(cb); }
+  void set_hover_callback(mouse_cb_t cb)       { hover_callback = std::move(cb); }
+  void set_double_click_callback(dbl_cb_t cb)  { double_click_callback = std::move(cb); }
+
+  /// \brief Clear the user-zoom flag for (i,j) so the next plot() call resets its range
+  void reset_zoom(int i, int j);
+
+  // ── Per-cell accessors used by click/hover handlers in MainWindow ────────
+  [[nodiscard]] Dim          dim(int i, int j)      const;
+  [[nodiscard]] type_t       type_at(int i, int j)  const;
+  [[nodiscard]] bool         is_flipped(int i, int j) const;
+  [[nodiscard]] QCustomPlot* plot_at(int i, int j)  const;
+  [[nodiscard]] QCPColorMap* image_at(int i, int j) const;
+
 
 private:
   [[nodiscard]] inline int key(int i, int j, ::bifrost::data::Filter filter = ::bifrost::data::Filter::none) const {
@@ -69,6 +89,7 @@ private:
     void make_plot(int i, int j, bool flip, type_t t);
     void make_1D(int i, int j, bool flip, type_t t);
     void make_2D(int i, int j, bool flip, type_t t);
+    void set_axis_labels(int i, int j);
 
 private:
   layout_t * layout{};
@@ -83,6 +104,15 @@ private:
   std::map<int, type_t> types;
   std::map<int, bool> flipped;
 
+  // Zoom-persistence state
+  std::map<int, bool> user_zoomed;
+  bool in_range_update{false};
+
+  // Mouse-interaction callbacks
+  mouse_cb_t click_callback;
+  mouse_cb_t hover_callback;
+  dbl_cb_t   double_click_callback;
+
   void clear(){
     qDeleteAll(layout->children());
     plots.clear();
@@ -91,6 +121,8 @@ private:
     dims.clear();
     types.clear();
     flipped.clear();
+    user_zoomed.clear();
+    polygons.clear();
   }
 
   void remove(int i, int j){
@@ -107,6 +139,7 @@ private:
     if (dims.count(k)) dims.erase(k);
     if (types.count(k)) types.erase(k);
     if (flipped.count(k)) flipped.erase(k);
+    if (user_zoomed.count(k)) user_zoomed.erase(k);
   }
 
   void empty_layout(){

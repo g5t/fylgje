@@ -106,6 +106,15 @@ public:
     void timer_callback_window_update();
 
 private:
+  void setup_overview();
+  void plot_overview();
+  void auto_overview_limits();
+  void get_overview_limits();
+
+  void setup_detailed_interactions();
+  void on_plot_clicked(int i, int j, QMouseEvent * event);
+  void on_plot_hovered(int i, int j, QMouseEvent * event);
+
   void set_arc(int n, bool plot_now=true);
   void set_triplet(int n, bool plot_now=true);
   void set_int(int_t t, bool plot_now=true);
@@ -226,5 +235,13 @@ private:
     std::string default_filename{""}; // let the user choose the filename graphically, or set a default from the command line
 
     std::unique_ptr<QLCDNumber> message_count, event_count;
+
+    QCustomPlot * overview_plot{nullptr};
+    QCPColorMap * overview_image{nullptr};
+    int overview_max{1};
+
+    /// Remembers which 3×3 view was showing before we entered the single-plot view,
+    /// so Ctrl+Click can return to it and Alt+Click can switch to the other one.
+    PlotType _previous_plot_type{PlotType::Unknown};
 };
 #endif // MAINWINDOW_H

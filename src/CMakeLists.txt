@@ -64,6 +64,7 @@ set(${gui_target}_src
   AppOverview.cpp
   AppCalibration.cpp
   AppData.cpp
+  AppDetailed.cpp
   Calibration.cpp
   CLI.cpp
   Configuration.cpp

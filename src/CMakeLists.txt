@@ -3,28 +3,29 @@ find_package(RdKafka REQUIRED)
 find_package(h5cpp REQUIRED)
 find_package(qplot REQUIRED)
 
+set(core_target fylgje_core)
 set(cli_target fylgje-cli)
 set(gui_target fylgje)
 
-set(${cli_target}_src
-  App.cpp
+#=============================================================================
+# fylgje_core: GUI-agnostic consumer/data handling, shared by the CLI, the
+# GUI, and the test executables
+#=============================================================================
+
+set(${core_target}_src
   Calibration.cpp
-  CLI.cpp
   Configuration.cpp
   ESSConsumer.cpp
   EventManager.cpp
   HistogramManager.cpp
   KafkaConfig.cpp
-  Main.cpp
   Message.cpp
   Network.cpp
   PixelManager.cpp
   Time.cpp
 )
 
-set(${cli_target}_inc
-  App.h
-  CLI.h
+set(${core_target}_inc
   Calibration.h
   Configuration.h
   ESSConsumer.h
@@ -38,25 +39,50 @@ set(${cli_target}_inc
   Time.h
 )
 
+add_library(
+  ${core_target}
+  STATIC
+  ${${core_target}_src}
+  ${${core_target}_inc}
+)
+
+target_include_directories(${core_target} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  ${core_target}
+  PUBLIC fmt::fmt
+  PUBLIC RdKafka::rdkafka++
+  PUBLIC RdKafka::rdkafka
+  PUBLIC h5cpp::h5cpp
+)
+
+target_link_libraries(${core_target}
+  PUBLIC $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+target_link_libraries(${core_target}
+  PUBLIC $<$<AND:$<CXX_COMPILER_ID:AppleClang>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,11.0>>:c++fs>)
+
+#=============================================================================
+# fylgje-cli: headless consumer
+#=============================================================================
+
+# Main/App/CLI are compiled per-executable because FYLGJE_GUI switches their behaviour
 add_executable(
   ${cli_target}
-  ${${cli_target}_src}
-  ${${cli_target}_inc}
+  App.cpp
+  App.h
+  CLI.cpp
+  CLI.h
+  Main.cpp
 )
 
 target_link_libraries(
   ${cli_target}
-  PUBLIC fmt::fmt
-  PRIVATE RdKafka::rdkafka++
-  PRIVATE RdKafka::rdkafka
-  PRIVATE h5cpp::h5cpp
+  PRIVATE ${core_target}
 )
 
-target_link_libraries(${cli_target}
-  PRIVATE $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(${cli_target}
-  PRIVATE $<$<AND:$<CXX_COMPILER_ID:AppleClang>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,11.0>>:c++fs>)
-
+#=============================================================================
+# fylgje: Qt GUI
+#=============================================================================
 
 set(${gui_target}_src
   App.cpp
@@ -65,43 +91,22 @@ set(${gui_target}_src
   AppCalibration.cpp
   AppData.cpp
   AppDetailed.cpp
-  Calibration.cpp
   CLI.cpp
-  Configuration.cpp
-  ESSConsumer.cpp
-  EventManager.cpp
   GUI.cpp
-  HistogramManager.cpp
-  KafkaConfig.cpp
   Main.cpp
-  Message.cpp
-  Network.cpp
-  PixelManager.cpp
   PlotManager.cpp
   QHistogramManager.cpp
   TableItemTypes.cpp
-  Time.cpp
 )
 set(${gui_target}_inc
   App.h
   AppWindow.h
-  Calibration.h
   CLI.h
-  Configuration.h
   Cycles.h
-  ESSConsumer.h
-  EventManager.h
   GUI.h
-  HistogramManager.h
-  JsonFile.h
-  KafkaConfig.h
-  Message.h
-  Network.h
   PlotManager.h
-  PixelManager.h
   QEventManager.h
   QHistogramManager.h
-  Time.h
   TwoSpinBox.h
   WorkerThread.h
 )
@@ -118,15 +123,8 @@ add_executable(
 target_compile_definitions(${gui_target} PUBLIC FYLGJE_GUI)
 target_link_libraries(
   ${gui_target}
-  PUBLIC fmt::fmt
-  PRIVATE RdKafka::rdkafka++
-  PRIVATE RdKafka::rdkafka
+  PRIVATE ${core_target}
   PRIVATE QPlot
   PRIVATE Qt6::Widgets
   PRIVATE Qt6::Core5Compat
-  PRIVATE h5cpp::h5cpp
 )
-target_link_libraries(${gui_target}
-  PRIVATE $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(${gui_target}
-  PRIVATE $<$<AND:$<CXX_COMPILER_ID:AppleClang>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,11.0>>:c++fs>)

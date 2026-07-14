@@ -21,6 +21,7 @@ Exit code 0 = pass, non-zero = fail.
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -185,7 +186,10 @@ def run_consumer_under_test(
         *extra_args
     ]
     click.echo(f"[itest] running consumer under test: {' '.join(cmd)}")
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    # a fresh working directory per run: the consumer writes its HDF5 output
+    # to the cwd (unless -o points elsewhere) and refuses to overwrite
+    with tempfile.TemporaryDirectory(prefix="fylgje-itest-") as workdir:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=workdir)
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -226,6 +230,12 @@ def run_consumer_under_test(
     help="Replication factor for the created topic (single-broker cluster, "
          "so this should normally stay at 1).",
 )
+@click.option(
+    "--bootstrap-servers", default=None,
+    help="Use an externally provided broker instead of starting an ephemeral "
+         "one; the topic is still created (with a unique suffix) and the "
+         "stream uploaded.",
+)
 
 def cli(
         consumer_exe: Path,
@@ -236,6 +246,7 @@ def cli(
         expected_count: Optional[int],
         partitions: Optional[int],
         replication_factor: int,
+        bootstrap_servers: Optional[str],
 ):
     """Run the Kafka consumer integration test.
 
@@ -252,8 +263,19 @@ def cli(
             expected_count=expected_count,
             partitions=partitions,
             replication_factor=replication_factor,
+            bootstrap_servers=bootstrap_servers,
         )
     )
+
+
+@contextmanager
+def external_kafka(bootstrap_servers: str):
+    """Adapter so an externally managed broker can stand in for ephemeral_kafka."""
+    first = bootstrap_servers.split(",")[0]
+    if ":" in first:
+        host, port = first.rsplit(":", 1)
+        _wait_for_broker(host, int(port), timeout=10)
+    yield bootstrap_servers
 
 
 def run(
@@ -265,6 +287,7 @@ def run(
         expected_count: Optional[int],
         partitions: Optional[int],
         replication_factor: int,
+        bootstrap_servers: Optional[str] = None,
 ) -> int:
     from scripts.kafka_uploader import scan_file
     if not expected_count or not partitions:
@@ -272,12 +295,20 @@ def run(
         expected_count = expected_count or detected_count
         partitions = partitions or detected_partitions
 
-    with ephemeral_kafka(image=kafka_image) as bootstrap_servers:
-        create_topic(bootstrap_servers, topic, partitions, replication_factor)
-        upload_count = upload_stream(stream_file, bootstrap_servers, topic)
-        click.echo(f"[itest] expecting consumer to see {expected_count} messages")
+    if bootstrap_servers:
+        # a shared broker may outlive many runs: keep topics from colliding
+        topic = f"{topic}-{int(time.time())}"
+        broker = external_kafka(bootstrap_servers)
+    else:
+        broker = ephemeral_kafka(image=kafka_image)
 
-        result = run_consumer_under_test(consumer_exe, bootstrap_servers, topic, consumer_args)
+    with broker as servers:
+        create_topic(servers, topic, partitions, replication_factor)
+        upload_count = upload_stream(stream_file, servers, topic)
+        click.echo(f"[itest] uploaded {upload_count} messages; "
+                   f"expecting consumer to see {expected_count}")
+
+        result = run_consumer_under_test(consumer_exe, servers, topic, consumer_args)
 
         click.echo("---- consumer stdout ----")
         click.echo(result.stdout)
@@ -288,9 +319,7 @@ def run(
             click.echo(f"[itest] FAIL: consumer exited with code {result.returncode}", err=True)
             return 1
 
-        # ASSUMPTION: the consumer prints a line like "messages_consumed=<N>".
-        # Replace this block with however your binary actually reports what
-        # it processed.
+        # fylgje-cli prints a machine-readable summary after its run
         consumed = None
         for line in result.stdout.splitlines():
             if line.startswith("messages_consumed="):

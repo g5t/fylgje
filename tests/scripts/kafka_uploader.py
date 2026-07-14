@@ -281,18 +281,21 @@ class KafkaMessageUploader:
             print(f'Message delivery failed: {err}')
         # Silent on success to avoid spam
 
-    def _process_upload(self, input_file, target_topic, message_loader, message_decoder):
-        """Common upload processing for both JSON and binary formats"""
+    def _process_upload(self, input_file, target_topic, message_loader, message_decoder, sample_every=1):
+        """Common upload processing for both JSON and binary formats
+
+        sample_every=N uploads only every Nth message (N=1 uploads everything).
+        """
         skipped = skip_count = count = errors = 0
-        
+
         decompressor, decomp_info = get_decompressor(input_file)
         print(f"Using {decomp_info}")
-        
+
         with decompressor as f:
             try:
                 for record in message_loader(f):
                     skip_count += 1
-                    if skip_count % 1000 != 0:
+                    if sample_every > 1 and skip_count % sample_every != 0:
                         skipped += 1
                         continue
 
@@ -344,21 +347,21 @@ class KafkaMessageUploader:
         """Extract message components from record (to be overridden by format-specific logic)"""
         raise NotImplementedError("Subclasses must implement _extract_message_data")
 
-    def upload_file(self, input_file, target_topic):
+    def upload_file(self, input_file, target_topic, sample_every=1):
         if file_extension_format(input_file) == 'json':
-            return self.upload_from_jsonl(input_file, target_topic)
+            return self.upload_from_jsonl(input_file, target_topic, sample_every)
         else:
-            return self.upload_from_binary(input_file, target_topic)
+            return self.upload_from_binary(input_file, target_topic, sample_every)
 
-    def upload_from_jsonl(self, jsonl_file, target_topic):
+    def upload_from_jsonl(self, jsonl_file, target_topic, sample_every=1):
         """Upload messages from JSON Lines format"""
         # Temporarily override the extract method for JSON processing
-        return self._process_upload(jsonl_file, target_topic, json_loader, extract_json_message_data)
-    
-    def upload_from_binary(self, binary_file, target_topic):
+        return self._process_upload(jsonl_file, target_topic, json_loader, extract_json_message_data, sample_every)
+
+    def upload_from_binary(self, binary_file, target_topic, sample_every=1):
         """Upload messages from binary pickle format"""
         # Temporarily override the extract method for binary processing
-        return self._process_upload(binary_file, target_topic, pickle_loader, extract_binary_message_data)
+        return self._process_upload(binary_file, target_topic, pickle_loader, extract_binary_message_data, sample_every)
 
     
     def batch_upload_with_rate_limit(self, input_file, target_topic, rate_limit, format_type='json'):

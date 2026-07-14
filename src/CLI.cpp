@@ -48,6 +48,9 @@ int fylgje_app_cli(
   }
   ESSConsumer<EventManager> worker{data, configuration, from, to.value()};
   worker.run();
+  // machine-readable summary, relied upon by the integration test harness
+  fmt::print("messages_consumed={}\n", worker.message_count());
+  fmt::print("readouts_processed={}\n", worker.event_count());
   data->save_to(output_file.value_or("fylgje.h5"));
   return 0;
 }

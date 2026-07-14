@@ -41,6 +41,8 @@ private:
   int64_t good_readout_count{0};
   int64_t bad_message_count{0};
   int64_t bad_readout_count{0};
+  ess::network::PartitionWindow window;
+  std::chrono::milliseconds maximum_idle{30'000};
 
   ess::network::CallbacksType callbacks{
     {3, std::bind(&ESSConsumer::parseCAENData, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)},
@@ -97,19 +99,34 @@ public:
   }
   void consumeFrom(const std::optional<kafka_time_t> ms_since_utc_epoch){
     earliest_timestamp = ess::network::consume_from(configuration, mConsumer, ms_since_utc_epoch);
+    window.reset(mConsumer);
   }
   void consumeUntil(const std::optional<kafka_time_t> ms_since_utc_epoch){
     latest_timestamp = ess::network::consume_until(configuration, mConsumer, earliest_timestamp, ms_since_utc_epoch);
+    window.reset(mConsumer);
   }
 
+  /// \brief bound on how long a finite-window run() may go without any
+  ///        message or EOF before giving up (safety net; EOF is the normal exit)
+  void setMaximumIdle(std::chrono::milliseconds ms) { maximum_idle = ms; }
+
   void run(){
+    using clock_t = std::chrono::steady_clock;
     Status intent{Status::Continue};
+    auto last_activity = clock_t::now();
     while (intent != Status::Halt) {
       const auto Msg = consume();
-      auto [status, ar51s] = ess::network::handle_message(earliest_timestamp, latest_timestamp, Msg, callbacks);
+      auto [status, ar51s] = ess::network::handle_message(mConsumer, earliest_timestamp, latest_timestamp, Msg, callbacks, window);
       total_ar51 += ar51s;
+      if (Msg->err() != RdKafka::ERR__TIMED_OUT) {
+        last_activity = clock_t::now();
+      }
       delete Msg;
       intent = status;
+      if (intent != Status::Halt && latest_timestamp >= 0 && clock_t::now() - last_activity > maximum_idle) {
+        fmt::print("No messages or partition EOFs for {} ms; stopping\n", maximum_idle.count());
+        intent = Status::Halt;
+      }
     }
     fmt::print("Processed {} AR51 messages ({} bad) and {} CAEN readouts ({} bad)\n", total_ar51, bad_message_count, good_readout_count, bad_readout_count);
   }
@@ -211,8 +228,7 @@ private:
     kafkaConfig = KafkaConfig(configuration.KafkaConfigFile).CfgParms;
     mConsumer = ess::network::subscribe_topic(configuration, kafkaConfig);
     assert(mConsumer != nullptr);
-    //set_consumer_offset(Beginning, 0);
-    set_consumer_offset(configuration, mConsumer, ess::network::Time, earliest_timestamp);
+    // positioning (offset lookup + assign) happens in consumeFrom
   }
 
 };

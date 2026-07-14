@@ -105,6 +105,28 @@ namespace ess::network {
   } __attribute__((packed));
 
 
+/// \brief Tracks which assigned partitions have finished (reached EOF or the
+///        end of the requested time window) so consumption halts only when
+///        every partition is done, not on the first EOF/late message.
+  class PartitionWindow {
+  public:
+    /// \brief (Re)build the tracked set from the consumer's current assignment
+    void reset(RdKafka::KafkaConsumer * consumer);
+    void mark_done(int32_t partition) { done_[partition] = true; }
+    [[nodiscard]] bool is_done(int32_t partition) const {
+      const auto it = done_.find(partition);
+      return it != done_.end() && it->second;
+    }
+    /// \return true only when partitions are tracked and all are finished
+    [[nodiscard]] bool all_done() const {
+      if (done_.empty()) return false;
+      for (const auto & [partition, done]: done_) if (!done) return false;
+      return true;
+    }
+  private:
+    std::map<int32_t, bool> done_;
+  };
+
 /// \brief setup librdkafka parameters for Broker and Topic
   RdKafka::KafkaConsumer * subscribe_topic(const Configuration & Config, const std::vector<std::pair<std::string, std::string>> & kafkaConfig);
 
@@ -118,8 +140,11 @@ namespace ess::network {
   using CallbacksType = std::map<uint32_t, TypeCallback>;
 
 /// \brief initial checks for kafka error messages
+/// \param consumer needed to pause a partition that has passed the window end
+/// \param window per-partition done-state; Halt is returned only when all
+///        assigned partitions are done (or on a hard error)
 /// \return Update if data is processed, Continue if no data, or Halt if finished or errored
-  std::tuple<Status, uint32_t> handle_message(int64_t early, int64_t late, RdKafka::Message * message, CallbacksType & callbacks);
+  std::tuple<Status, uint32_t> handle_message(RdKafka::KafkaConsumer * consumer, int64_t early, int64_t late, RdKafka::Message * message, CallbacksType & callbacks, PartitionWindow & window);
 
 /// \brief Main processing function for AR51 data
 /// \return number of processed events _in_ the message

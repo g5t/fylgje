@@ -51,17 +51,31 @@ RdKafka::KafkaConsumer * ess::network::subscribe_topic(
   mConf->set("group.id", group_id, ErrStr);
   mConf->set("enable.auto.commit", Config.Kafka.EnableAutoCommit, ErrStr);
   mConf->set("enable.auto.offset.store", Config.Kafka.EnableAutoOffsetStore, ErrStr);
+  // without this, ERR__PARTITION_EOF is never delivered and a finite-window
+  // consumer has no way to learn that a partition is exhausted
+  mConf->set("enable.partition.eof", "true", ErrStr);
 
   for (const auto &[name, value] : kafkaConfig) {
     mConf->set(name, value, ErrStr);
   }
   const auto ret = RdKafka::KafkaConsumer::create(mConf, ErrStr);
+  delete mConf;
   if (!ret) {
     fmt::print("Failed to create consumer: {}\n", ErrStr);
     return nullptr;
   }
   // **DO NOT** subscribe to the topic -- we need to set the offset _before_ *ASSIGNING* the topic.
   return ret;
+}
+
+void ess::network::PartitionWindow::reset(RdKafka::KafkaConsumer * consumer) {
+  done_.clear();
+  std::vector<RdKafka::TopicPartition*> tps;
+  consumer->assignment(tps);
+  for (const auto tp: tps) {
+    done_[tp->partition()] = false;
+  }
+  RdKafka::TopicPartition::destroy(tps);
 }
 
 
@@ -106,6 +120,15 @@ static void set_topic_partition_offset(
       fmt::print("Failed retrieving soonest offset after {} for {}:  {}\n",
                  ms_since_utc_epoch, configuration.Kafka.Topic, err2str(resp));
     }
+    // A negative offset means either no message at-or-after the requested
+    // time, or a broker without timestamp lookup (librdkafka's mock cluster).
+    // Fall back to the low watermark: handle_message drops out-of-window
+    // messages by timestamp, so this is correct either way.
+    for (const auto tp: tps){
+      if (tp->offset() < 0) {
+        tp->set_offset(low_high.at(tp->partition()).first);
+      }
+    }
   }
 
   std::stringstream ss;
@@ -114,7 +137,7 @@ static void set_topic_partition_offset(
     const auto &[low, high] = low_high.at(tp->partition());
     ss << "  " << tp->partition() << ": [" << low << ", " << tp->offset() << ", " << high << "],\n";
   }
-  ss.seekp(-2, ss.cur);
+  if (!tps.empty()) ss.seekp(-2, ss.cur);
   ss << "\n]\n";
   fmt::print(ss.str());
 }
@@ -128,7 +151,7 @@ void ess::network::set_consumer_offset(
 ){
   // set the consumer starting point, using the partition's known offsets ...
   const RdKafka::Topic *only_rkt{nullptr};
-  RdKafka::Metadata *metadata_ptr;
+  RdKafka::Metadata *metadata_ptr{nullptr};
   std::vector<int32_t> partitions;
 
   auto resp = consumer->metadata(true, only_rkt, &metadata_ptr, 1000);
@@ -152,15 +175,7 @@ void ess::network::set_consumer_offset(
         fmt::print("]\n");
       }
     }
-  }
-  std::vector<std::string> subscriptions;
-  resp = consumer->subscription(subscriptions);
-  if (resp != RdKafka::ERR_NO_ERROR){
-    fmt::print("Failed to retrieve subscribed topics: {}\n", err2str(resp));
-  } else {
-    fmt::print("Subscribed to [");
-    for (const auto & sub: subscriptions) fmt::print("{}, ", sub);
-    fmt::print("]\n");
+    delete metadata_ptr;
   }
 
   std::vector<RdKafka::TopicPartition*> tps;
@@ -169,7 +184,7 @@ void ess::network::set_consumer_offset(
   }
   set_topic_partition_offset(configuration, consumer, tps, start, ms_since_utc_epoch);
   consumer->assign(tps); // since consumption hasn't started, we seek by assigning the (topic, partition, offset)
-
+  RdKafka::TopicPartition::destroy(tps); // assign() copies the list
 }
 
 
@@ -179,10 +194,19 @@ int64_t ess::network::consume_all(
 ){
   std::vector<RdKafka::TopicPartition*> tps;
   consumer->assignment(tps);
-  set_topic_partition_offset(configuration, consumer, tps, Beginning, 0);
-  for (const auto & tp: tps){
-    consumer->seek(*tp, 1);
+  if (tps.empty()) {
+    set_consumer_offset(configuration, consumer, Beginning, 0);
+  } else {
+    consumer->resume(tps);
+    set_topic_partition_offset(configuration, consumer, tps, Beginning, 0);
+    for (const auto & tp: tps){
+      if (const auto resp = consumer->seek(*tp, 5000); resp != RdKafka::ERR_NO_ERROR) {
+        fmt::print("Failed seeking {} partition {} to offset {}: {}\n",
+                   configuration.Kafka.Topic, tp->partition(), tp->offset(), err2str(resp));
+      }
+    }
   }
+  RdKafka::TopicPartition::destroy(tps);
   return 0;
 }
 
@@ -194,61 +218,82 @@ int64_t ess::network::consume_from(
   const auto earliest_timestamp = since_epoch.has_value() ? since_epoch.value().count() : 0;
   std::vector<RdKafka::TopicPartition*> tps;
   consumer->assignment(tps);
-  set_topic_partition_offset(configuration, consumer, tps, Time, earliest_timestamp);
-  for (const auto & tp: tps){
-    consumer->seek(*tp, 1);
+  if (tps.empty()) {
+    // first positioning: discover partitions, set offsets, and assign in one go
+    set_consumer_offset(configuration, consumer, Time, earliest_timestamp);
+  } else {
+    // re-windowing an active consumer (GUI): resume anything paused and seek
+    consumer->resume(tps);
+    set_topic_partition_offset(configuration, consumer, tps, Time, earliest_timestamp);
+    for (const auto & tp: tps){
+      if (const auto resp = consumer->seek(*tp, 5000); resp != RdKafka::ERR_NO_ERROR) {
+        fmt::print("Failed seeking {} partition {} to offset {}: {}\n",
+                   configuration.Kafka.Topic, tp->partition(), tp->offset(), err2str(resp));
+      }
+    }
   }
+  RdKafka::TopicPartition::destroy(tps);
   return earliest_timestamp;
 }
 
 int64_t ess::network::consume_until(
-    Configuration & configuration,
-    RdKafka::KafkaConsumer * consumer,
-    int64_t early,
+    Configuration & /*configuration*/,
+    RdKafka::KafkaConsumer * /*consumer*/,
+    int64_t /*early*/,
     std::optional<kafka::time::milliseconds> since_epoch
 ){
-  auto duration = std::chrono::system_clock::now().time_since_epoch();
-  auto ms_now= std::chrono::duration_cast<std::chrono::milliseconds>(duration);
-  auto latest_timestamp = since_epoch.has_value() ? since_epoch.value().count() : -1;
-  if (since_epoch < ms_now){
-    // consume only in the past; do we _need_ to seek backwards?
-    std::vector<RdKafka::TopicPartition*> tps;
-    consumer->assignment(tps);
-    set_topic_partition_offset(configuration, consumer, tps, early < 0 ? Beginning : Time, early);
-    for (const auto & tp: tps){
-      consumer->seek(*tp, 1);
-    }
-  }
-  return latest_timestamp;
+  // positioning is consume_from's job; this only records the window end
+  return since_epoch.has_value() ? since_epoch.value().count() : -1;
 }
 
-std::tuple<Status, uint32_t> ess::network::handle_message(int64_t early, int64_t late, RdKafka::Message *message, CallbacksType & callbacks) {
+std::tuple<Status, uint32_t> ess::network::handle_message(
+    RdKafka::KafkaConsumer * consumer,
+    const int64_t early, const int64_t late,
+    RdKafka::Message * message,
+    CallbacksType & callbacks,
+    PartitionWindow & window
+) {
   switch (message->err()) {
     case RdKafka::ERR__TIMED_OUT:
       return {Continue, 0};
 
     case RdKafka::ERR_NO_ERROR: {
-      uint32_t count{0};
-      if (auto message_timestamp = message->timestamp().timestamp; late < 0 || message_timestamp < late) {
-        if (RawReadoutMessageBufferHasIdentifier(message->payload())) {
-          auto [c, b] = process_AR51_data(message, callbacks);
-          count += c;
-        } else {
-          fmt::print("Not a ar51 Kafka message!\n");
-        }
-      } else if (message_timestamp >= late) {
-        return {Halt, RawReadoutMessageBufferHasIdentifier(message->payload()) ? 1 : 0};
-      } else {
-        fmt::print("Message timestamp {} is not within range {} to {}?\n", message_timestamp, early, late);
+      const auto partition = message->partition();
+      if (window.is_done(partition)) {
+        // straggler from a partition already past the window end
+        return {Continue, 0};
       }
+      if (const auto message_timestamp = message->timestamp().timestamp; late >= 0 && message_timestamp >= late) {
+        // this partition has passed the window end; others may not have.
+        // pause it so we stop fetching its (out-of-window) tail
+        window.mark_done(partition);
+        std::vector<RdKafka::TopicPartition*> tp{
+            RdKafka::TopicPartition::create(message->topic_name(), partition)};
+        consumer->pause(tp);
+        RdKafka::TopicPartition::destroy(tp);
+        return {window.all_done() ? Halt : Continue, 0};
+      } else if (message_timestamp < early && early >= 0 && message_timestamp >= 0) {
+        // seen when the seek fell back to the low watermark; drop silently
+        return {Continue, 0};
+      }
+      if (!RawReadoutMessageBufferHasIdentifier(message->payload())) {
+        fmt::print("Not a ar51 Kafka message!\n");
+        return {Continue, 0};
+      }
+      auto [count, bad] = process_AR51_data(message, callbacks);
       return {count ? Update : Continue, 1}; // whether or not it had events, this is an AR51 message
     }
     case RdKafka::ERR__PARTITION_EOF: {
-      fmt::print("Reached end of partition\n");
-      return {Halt, 0};
+      if (late < 0) {
+        // live mode: the partition may receive more data, keep polling
+        return {Continue, 0};
+      }
+      window.mark_done(message->partition());
+      fmt::print("Reached end of partition {}\n", message->partition());
+      return {window.all_done() ? Halt : Continue, 0};
     }
     default:
-      fmt::print("Consume failed: {}", message->errstr());
+      fmt::print("Consume failed: {}\n", message->errstr());
       return {Halt, 0};
   }
 }

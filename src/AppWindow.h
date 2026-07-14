@@ -33,77 +33,77 @@ QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT
+  Q_OBJECT
 
-    using int_t = ::bifrost::data::Type;
-    using intensity_map_t = ::bifrost::data::map_t<int>;
-    enum class Time {Fixed, Historical, Live};
-    enum class PlotType {Unknown, Types, Triplets, Singular};
+  using int_t = ::bifrost::data::Type;
+  using intensity_map_t = ::bifrost::data::map_t<int>;
+  enum class Time {Fixed, Historical, Live};
+  enum class PlotType {Unknown, Types, Triplets, Singular};
 public:
-    MainWindow(
-        const Configuration & Config,
-        const Calibration & calibration,
-        kafka::time::milliseconds start,
-        std::optional<kafka::time::milliseconds> end,
-        const std::optional<std::string> & output,
-        bool store_events,
-        bool store_pixels,
-        QWidget *parent = nullptr
-    );
+  MainWindow(
+      const Configuration & Config,
+      const Calibration & calibration,
+      kafka::time::milliseconds start,
+      std::optional<kafka::time::milliseconds> end,
+      const std::optional<std::string> & output,
+      bool store_events,
+      bool store_pixels,
+      QWidget *parent = nullptr
+  );
 
-    ~MainWindow() override;
+  ~MainWindow() override;
 
-    void set_arc_1(){set_arc(0);}
-    void set_arc_2(){set_arc(1);}
-    void set_arc_3(){set_arc(2);}
-    void set_arc_4(){set_arc(3);}
-    void set_arc_5(){set_arc(4);}
+  void set_arc_1(){set_arc(0);}
+  void set_arc_2(){set_arc(1);}
+  void set_arc_3(){set_arc(2);}
+  void set_arc_4(){set_arc(3);}
+  void set_arc_5(){set_arc(4);}
 
-    void set_triplet_1(){set_triplet(0);}
-    void set_triplet_2(){set_triplet(1);}
-    void set_triplet_3(){set_triplet(2);}
-    void set_triplet_4(){set_triplet(3);}
-    void set_triplet_5(){set_triplet(4);}
-    void set_triplet_6(){set_triplet(5);}
-    void set_triplet_7(){set_triplet(6);}
-    void set_triplet_8(){set_triplet(7);}
-    void set_triplet_9(){set_triplet(8);}
+  void set_triplet_1(){set_triplet(0);}
+  void set_triplet_2(){set_triplet(1);}
+  void set_triplet_3(){set_triplet(2);}
+  void set_triplet_4(){set_triplet(3);}
+  void set_triplet_5(){set_triplet(4);}
+  void set_triplet_6(){set_triplet(5);}
+  void set_triplet_7(){set_triplet(6);}
+  void set_triplet_8(){set_triplet(7);}
+  void set_triplet_9(){set_triplet(8);}
 
-    void set_int_x(){set_int(int_t::x);}
-    void set_int_a(){set_int(int_t::a);}
-    void set_int_b(){set_int(int_t::b);}
-    void set_int_p(){set_int(int_t::p);}
-    void set_int_t(){set_int(int_t::t);}
-    void set_int_xP(){set_int(int_t::xp);}
-    void set_int_AB(){set_int(int_t::ab);}
-    void set_int_xt(){set_int(int_t::xt);}
-    void set_int_Pt(){set_int(int_t::pt);}
+  void set_int_x(){set_int(int_t::x);}
+  void set_int_a(){set_int(int_t::a);}
+  void set_int_b(){set_int(int_t::b);}
+  void set_int_p(){set_int(int_t::p);}
+  void set_int_t(){set_int(int_t::t);}
+  void set_int_xP(){set_int(int_t::xp);}
+  void set_int_AB(){set_int(int_t::ab);}
+  void set_int_xt(){set_int(int_t::xt);}
+  void set_int_Pt(){set_int(int_t::pt);}
 
-    void set_bins_a_1d(int m){data->histograms().set_bins_1d(int_t::a, m); set_intensity_limits();}
-    void set_bins_b_1d(int m){data->histograms().set_bins_1d(int_t::b, m); set_intensity_limits();}
-    void set_bins_p_1d(int m){data->histograms().set_bins_1d(int_t::p, m); set_intensity_limits();}
-    void set_bins_x_1d(int m){data->histograms().set_bins_1d(int_t::x, m); set_intensity_limits();}
-    void set_bins_t_1d(int m){data->histograms().set_bins_1d(int_t::t, m); set_intensity_limits();}
-    void set_bins_a_2d(int m){data->histograms().set_bins_2d(int_t::a, m); set_intensity_limits();}
-    void set_bins_b_2d(int m){data->histograms().set_bins_2d(int_t::b, m); set_intensity_limits();}
-    void set_bins_p_2d(int m){data->histograms().set_bins_2d(int_t::p, m); set_intensity_limits();}
-    void set_bins_x_2d(int m){data->histograms().set_bins_2d(int_t::x, m); set_intensity_limits();}
-    void set_bins_t_2d(int m){data->histograms().set_bins_2d(int_t::t, m); set_intensity_limits();}
+  void set_bins_a_1d(const int m){data->histograms().set_bins_1d(int_t::a, m); set_intensity_limits();}
+  void set_bins_b_1d(const int m){data->histograms().set_bins_1d(int_t::b, m); set_intensity_limits();}
+  void set_bins_p_1d(const int m){data->histograms().set_bins_1d(int_t::p, m); set_intensity_limits();}
+  void set_bins_x_1d(const int m){data->histograms().set_bins_1d(int_t::x, m); set_intensity_limits();}
+  void set_bins_t_1d(const int m){data->histograms().set_bins_1d(int_t::t, m); set_intensity_limits();}
+  void set_bins_a_2d(const int m){data->histograms().set_bins_2d(int_t::a, m); set_intensity_limits();}
+  void set_bins_b_2d(const int m){data->histograms().set_bins_2d(int_t::b, m); set_intensity_limits();}
+  void set_bins_p_2d(const int m){data->histograms().set_bins_2d(int_t::p, m); set_intensity_limits();}
+  void set_bins_x_2d(const int m){data->histograms().set_bins_2d(int_t::x, m); set_intensity_limits();}
+  void set_bins_t_2d(const int m){data->histograms().set_bins_2d(int_t::t, m); set_intensity_limits();}
 
-    void set_time_live();
-    void set_time_historical();
-    void set_time_fixed();
-    void set_time_early(const QDateTime &);
-    void set_time_late(const QDateTime &);
+  void set_time_live();
+  void set_time_historical();
+  void set_time_fixed();
+  void set_time_early(const QDateTime &);
+  void set_time_late(const QDateTime &) const;
 
-    void set_filter_all(){plot_filter = ::bifrost::data::Filter::none; plot();}
-    void set_filter_included(){plot_filter = ::bifrost::data::Filter::positive; plot();}
-    void set_filter_excluded(){plot_filter = ::bifrost::data::Filter::negative; plot();}
+  void set_filter_all(){plot_filter = ::bifrost::data::Filter::none; plot();}
+  void set_filter_included(){plot_filter = ::bifrost::data::Filter::positive; plot();}
+  void set_filter_excluded(){plot_filter = ::bifrost::data::Filter::negative; plot();}
 
-    // gateway, uses private flags to determine which plot type is called
-    void plot();
+  // gateway, uses private flags to determine which plot type is called
+  void plot();
 
-    void timer_callback_window_update();
+  void timer_callback_window_update();
 
 private:
   void setup_overview();
@@ -132,7 +132,7 @@ private:
   void setup_add_bin_boxes();
   void setup_time_limits(kafka::time::milliseconds start, std::optional<kafka::time::milliseconds> end);
   void setup_intensity_limits();
-  void setup_gradient_list();
+  void setup_gradient_list() const;
   void setup_consumer();
   void setup_calibration();
   void setup_calibration_table();
@@ -184,64 +184,73 @@ private:
   void setup_status_bar();
 
 
-private:
-    Ui::MainWindow *ui;
-    bool _triplet_fixed{false};
-    bool _type_fixed{false};
-    int _fixed_arc{0};
-    int _fixed_triplet{0};
-    int_t _fixed_type{int_t::ab}; // should match the default in AppWindow.ui
+  Ui::MainWindow *ui;
+  bool _triplet_fixed{false};
+  bool _type_fixed{false};
+  int _fixed_arc{0};
+  int _fixed_triplet{0};
+  int_t _fixed_type{int_t::ab}; // should match the default in AppWindow.ui
 
-    std::map<std::pair<int_t, int>, TwoSpinBox *> bin_boxes{};
-    intensity_map_t max;
+  std::map<std::pair<int_t, int>, TwoSpinBox *> bin_boxes{};
+  intensity_map_t max;
 
-    std::vector<QSpinBox*> maxBox;
+  std::vector<QSpinBox*> maxBox;
 
-    std::string broker;
-    std::string topic;
+  std::string broker;
+  std::string topic;
 
-    std::shared_ptr<bifrost::data::Q::EventManager> data;
-    ::bifrost::data::Filter plot_filter{::bifrost::data::Filter::none};
-    std::unique_ptr<PlotManager> plots; // TODO use unique_ptr
-    std::unique_ptr<WorkerThread> consumer{}; // TODO use unique_ptr
+  std::shared_ptr<bifrost::data::Q::EventManager> data;
+  ::bifrost::data::Filter plot_filter{::bifrost::data::Filter::none};
+  std::unique_ptr<PlotManager> plots;
+  std::unique_ptr<WorkerThread> consumer{};
 
-    /// \brief configuration obtained from main()
-    Configuration configuration;
+  /// \brief configuration obtained from main()
+  Configuration configuration;
 
-    /// \brief calibration obtained from main()
-    Calibration calibration;
+  /// \brief calibration obtained from main()
+  Calibration calibration;
 
-    Time time_status{Time::Live};
+  Time time_status{Time::Live};
 
-    std::optional<fylgje::Cycles<1>> cycle_one;
-    std::optional<fylgje::Cycles<2>> cycle_two;
-    std::optional<fylgje::Cycles<3>> cycle_three;
+  std::optional<fylgje::Cycles<1>> cycle_one;
+  std::optional<fylgje::Cycles<2>> cycle_two;
+  std::optional<fylgje::Cycles<3>> cycle_three;
 
-    std::array<int_t, 9> type_order{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
-    int type_order_index(int_t t){
-      auto b = type_order.begin();
-      auto e = type_order.end();
-      auto i = std::distance(b, std::find(b, e, t));
-      if (i < 0 || i >= 9){
-        throw std::out_of_range("The index is out of range");
-      }
-      return static_cast<int>(i);
+  static const std::array<int_t, 9> & type_orders() {
+    static constexpr std::array<int_t, 9> orders{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
+    return orders;
+  }
+  static int_t type_of_order(const int index) {
+    if (index < 0 || index >= 9){
+      throw std::out_of_range("The index is out of range");
     }
+    return type_orders()[index];
+  }
+  static int order_of_type(const int_t t) {
+    const auto b = type_orders().begin();
+    const auto e = type_orders().end();
+    const auto i = std::distance(b, std::find(b, e, t));
+    if (i < 0 || i >= 9){
+      throw std::out_of_range("The index is out of range");
+    }
+    return static_cast<int>(i);
+  }
 
-    QTableWidget * calibration_table{nullptr};
-    std::vector<QTableWidgetItem *> calibration_table_items;
-    std::vector<std::pair<std::string, std::function<QTableWidgetItem*(int,int,int,CalibrationUnit *)>>> calibration_table_columns;
+  QTableWidget * calibration_table{nullptr};
+  QSpinBox * calibration_pulse_height_upper{nullptr};
+  std::vector<QTableWidgetItem *> calibration_table_items;
+  std::vector<std::pair<std::string, std::function<QTableWidgetItem*(int,int,int,CalibrationUnit *)>>> calibration_table_columns;
 
-    std::string default_filename{""}; // let the user choose the filename graphically, or set a default from the command line
+  std::string default_filename{""}; // let the user choose the filename graphically, or set a default from the command line
 
-    std::unique_ptr<QLCDNumber> message_count, event_count;
+  std::unique_ptr<QLCDNumber> message_count, event_count;
 
-    QCustomPlot * overview_plot{nullptr};
-    QCPColorMap * overview_image{nullptr};
-    int overview_max{1};
+  QCustomPlot * overview_plot{nullptr};
+  QCPColorMap * overview_image{nullptr};
+  int overview_max{1};
 
-    /// Remembers which 3×3 view was showing before we entered the single-plot view,
-    /// so Ctrl+Click can return to it and Alt+Click can switch to the other one.
-    PlotType _previous_plot_type{PlotType::Unknown};
+  /// Remembers which 3×3 view was showing before we entered the single-plot view,
+  /// so Ctrl+Click can return to it and Alt+Click can switch to the other one.
+  PlotType _previous_plot_type{PlotType::Unknown};
 };
 #endif // MAINWINDOW_H

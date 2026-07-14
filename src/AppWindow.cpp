@@ -15,11 +15,11 @@
 MainWindow::MainWindow(
     const Configuration & Config,
     const Calibration & calibration,
-    kafka::time::milliseconds start,
-    std::optional<kafka::time::milliseconds> end,
+    const kafka::time::milliseconds start,
+    const std::optional<kafka::time::milliseconds> end,
     const std::optional<std::string> & output,
-    bool store_events,
-    bool store_pixels,
+    const bool store_events,
+    const bool store_pixels,
     QWidget *parent
     )
     : QMainWindow(parent), ui(new Ui::MainWindow), configuration(Config), calibration(calibration)
@@ -96,40 +96,40 @@ MainWindow::MainWindow(
 }
 
 void MainWindow::setup_add_bin_boxes() {
-    auto layout = ui->binsFrame->layout();
-    std::tuple<QString, int_t, void (MainWindow::*)(int), void (MainWindow::*)(int)> groups[]{
-        {"A", int_t::a, &MainWindow::set_bins_a_1d, &MainWindow::set_bins_a_2d},
-        {"B", int_t::b, &MainWindow::set_bins_b_1d, &MainWindow::set_bins_b_2d},
-        {"x", int_t::x, &MainWindow::set_bins_x_1d, &MainWindow::set_bins_x_2d},
-        {"p", int_t::p, &MainWindow::set_bins_p_1d, &MainWindow::set_bins_p_2d},
-        {"t", int_t::t, &MainWindow::set_bins_t_1d, &MainWindow::set_bins_t_2d},
-    };
-    auto make_label = [](const QString & name){
-        auto label = new QLabel();
-        label->setText(name);
-        label->setAlignment(Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter);
-        return label;
-    };
-    for (const auto& [name, t, call1, call2]: groups){
-        layout->addWidget(make_label(name));
-        auto k1 = std::make_pair(t, 1);
-        auto k2 = std::make_pair(t, 2);
+  const auto layout = ui->binsFrame->layout();
+  std::tuple<QString, int_t, void (MainWindow::*)(int), void (MainWindow::*)(int)> groups[]{
+    {"A", int_t::a, &MainWindow::set_bins_a_1d, &MainWindow::set_bins_a_2d},
+    {"B", int_t::b, &MainWindow::set_bins_b_1d, &MainWindow::set_bins_b_2d},
+    {"x", int_t::x, &MainWindow::set_bins_x_1d, &MainWindow::set_bins_x_2d},
+    {"p", int_t::p, &MainWindow::set_bins_p_1d, &MainWindow::set_bins_p_2d},
+    {"t", int_t::t, &MainWindow::set_bins_t_1d, &MainWindow::set_bins_t_2d},
+  };
+  auto make_label = [](const QString & name){
+    const auto label = new QLabel();
+    label->setText(name);
+    label->setAlignment(Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter);
+    return label;
+  };
+  for (const auto& [name, t, call1, call2]: groups){
+    layout->addWidget(make_label(name));
+    auto k1 = std::make_pair(t, 1);
+    auto k2 = std::make_pair(t, 2);
 
-        bin_boxes[k1] = new TwoSpinBox(4, 1024);
-        layout->addWidget(bin_boxes.at(k1));
-        connect(bin_boxes.at(k1), QOverload<int>::of(&TwoSpinBox::valueChanged), this, call1);
+    bin_boxes[k1] = new TwoSpinBox(4, 1024);
+    layout->addWidget(bin_boxes.at(k1));
+    connect(bin_boxes.at(k1), QOverload<int>::of(&TwoSpinBox::valueChanged), this, call1);
 
-        bin_boxes[k2] = new TwoSpinBox(4, 512);
-        layout->addWidget(bin_boxes.at(k2));
-        connect(bin_boxes.at(k2), QOverload<int>::of(&TwoSpinBox::valueChanged), this, call2);
-    }
+    bin_boxes[k2] = new TwoSpinBox(4, 512);
+    layout->addWidget(bin_boxes.at(k2));
+    connect(bin_boxes.at(k2), QOverload<int>::of(&TwoSpinBox::valueChanged), this, call2);
+  }
 }
 
-void MainWindow::setup_time_limits(kafka::time::milliseconds start, std::optional<kafka::time::milliseconds> end){
-  std::string date_time_format{"yyyy.MM.ddThh:mm:ss"};
-  auto now = QDateTime::currentDateTimeUtc();
-  auto q_start = QDateTime::fromMSecsSinceEpoch(start.count());
-  auto q_end = end.has_value() ? QDateTime::fromMSecsSinceEpoch(end.value().count()) : now;
+void MainWindow::setup_time_limits(const kafka::time::milliseconds start, const std::optional<kafka::time::milliseconds> end){
+  const std::string date_time_format{"yyyy.MM.ddThh:mm:ss"};
+  const auto now = QDateTime::currentDateTimeUtc();
+  const auto q_start = QDateTime::fromMSecsSinceEpoch(start.count());
+  const auto q_end = end.has_value() ? QDateTime::fromMSecsSinceEpoch(end.value().count()) : now;
 
   for (auto & dt: {ui->timeBeginning, ui->timeEnding}){
     dt->setDisplayFormat(date_time_format.c_str());
@@ -186,7 +186,7 @@ void MainWindow::set_time_early(const QDateTime & time){
   }
 }
 
-void MainWindow::set_time_late(const QDateTime & time){
+void MainWindow::set_time_late(const QDateTime & time) const {
   using kafka::time::milliseconds;
   if (time_status == Time::Historical){
     consumer->consumeUntil(milliseconds(time.toMSecsSinceEpoch()));
@@ -201,9 +201,9 @@ void MainWindow::setup_intensity_limits() {
   for (auto sender: maxBox) connect(sender, signal, this, slot);
 }
 
-void MainWindow::setup_gradient_list(){
+void MainWindow::setup_gradient_list() const {
   ui->colormapComboBox->clear();
-  std::array<std::string,6> validNames {"gray", "hot", "cold", "night", "candy", "thermal"};
+  const std::array<std::string,6> validNames {"gray", "hot", "cold", "night", "candy", "thermal"};
   for (const auto& name: validNames){
     ui->colormapComboBox->addItem(QString(name.c_str()));
   }
@@ -224,10 +224,10 @@ void MainWindow::setup_gradient_list(){
   ui->scaleButton->clicked(configuration.Plot.LogScale);
 }
 
-void MainWindow::initialize(bool store_events, bool store_pixels){
+void MainWindow::initialize(const bool store_events, const bool store_pixels){
   using namespace bifrost::data;
-  auto tubes = configuration.Instrument.units_per_group;
-  auto pixelation = configuration.Instrument.pixels_per_unit;
+  const auto tubes = configuration.Instrument.units_per_group;
+  const auto pixelation = configuration.Instrument.pixels_per_unit;
 
   // create the event data manager, which only stores histogram data by default
   data = std::make_shared<Q::EventManager>(
@@ -251,7 +251,7 @@ void MainWindow::setup(){
     /// Update timer
     auto *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &MainWindow::timer_callback_window_update);
-    timer->start(1000);
+    timer->start(100);
 }
 
 void MainWindow::timer_callback_window_update() {
@@ -274,7 +274,8 @@ MainWindow::~MainWindow(){
 void MainWindow::cycle() {
   if (is_paused()) return;
   // entrypoint
-  auto type_index = type_order_index(_fixed_type);
+  const auto type_index = order_of_type(_fixed_type);
+  // auto type_index = type_order_index(_fixed_type);
   using fylgje::Cycles;
   auto arc = ui->arcCycleCheck->isChecked();
   auto triplet = ui->tripletCycleCheck->isChecked();
@@ -340,7 +341,7 @@ void MainWindow::set_type_radio(MainWindow::int_t type) {
   QRadioButton* radios[]{ui->int__x_Radio, ui->int__A_Radio, ui->int__P_Radio,
                          ui->int_xP_Radio, ui->int_AB_Radio, ui->int__B_Radio,
                          ui->int_xt_Radio, ui->int_Pt_Radio, ui->int__t_Radio};
-  radios[type_order_index(type)]->setChecked(true);
+  radios[order_of_type(type)]->setChecked(true);
 }
 
 void MainWindow::cycle_arc() {
@@ -355,7 +356,7 @@ void MainWindow::cycle_triplet() {
 
 void MainWindow::cycle_type(){
   cycle_one->next();
-  set_int(type_order[cycle_one->at(0)]);
+  set_int(type_of_order(cycle_one->at(0)));
 }
 
 void MainWindow::cycle_arc_triplet(){
@@ -367,20 +368,20 @@ void MainWindow::cycle_arc_triplet(){
 void MainWindow::cycle_arc_type(){
   cycle_two->next();
   set_arc(cycle_two->at(0), false);
-  set_int(type_order[cycle_two->at(1)]);
+  set_int(type_of_order(cycle_two->at(1)));
 }
 
 void MainWindow::cycle_triplet_type(){
   cycle_two->next();
   set_triplet(cycle_two->at(0), false);
-  set_int(type_order[cycle_two->at(1)]);
+  set_int(type_of_order(cycle_two->at(1)));
 }
 
 void MainWindow::cycle_arc_triplet_type(){
   cycle_three->next();
   set_arc(cycle_three->at(0), false);
   set_triplet(cycle_three->at(1), false);
-  set_int(type_order[cycle_three->at(2)]);
+  set_int(type_of_order(cycle_three->at(2)));
 }
 
 void MainWindow::set_arc(int n, bool plot_now){
@@ -482,25 +483,25 @@ void MainWindow::plot_one_type(int arc, int_t t){
 
 void MainWindow::plot_one_triplet(int arc, int triplet){
   using ::bifrost::data::Filter;
-  plots->make_multi(type_order);
+  plots->make_multi(type_orders());
   int i[]{0,0,0,1,1,1,2,2,2};
   int j[]{0,1,2,0,1,2,0,1,2};
   auto is_log = ui->scaleButton->isChecked();
   auto & hists = data->qHistograms();
   std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
   for (int t: {0, 1, 2, 5, 8}){
-    auto key = hists.key(arc, triplet, type_order[t]);
+    auto key = hists.key(arc, triplet, type_of_order(t));
     auto intensity = 1.0 * max[key];
-    if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, type_order[t], Filter::none);
-    if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, triplet, type_order[t], Filter::positive);
-    if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, triplet, type_order[t], Filter::negative);
-    plots->plot_all_included_excluded(i[t], j[t], hists.axis(type_order[t]), all, included, excluded, 0.0, intensity, is_log);
+    if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, type_of_order(t), Filter::none);
+    if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, triplet, type_of_order(t), Filter::positive);
+    if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, triplet, type_of_order(t), Filter::negative);
+    plots->plot_all_included_excluded(i[t], j[t], hists.axis(type_of_order(t)), all, included, excluded, 0.0, intensity, is_log);
   }
   auto gradient = ui->colormapComboBox->currentText().toStdString();
   auto is_inverted = ui->colormapInvertedCheck->isChecked();
   for (int t: {3, 4, 6, 7}){
-    auto key = hists.key(arc, triplet, type_order[t]);
-    plots->plot(i[t], j[t], hists.data_2D(arc, triplet, type_order[t], plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
+    auto key = hists.key(arc, triplet, type_of_order(t));
+    plots->plot(i[t], j[t], hists.data_2D(arc, triplet, type_of_order(t), plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
   }
 }
 

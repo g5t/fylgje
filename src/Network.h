@@ -17,7 +17,16 @@ namespace ess::network {
   enum Status {Continue, Update, Halt};
   enum Start {Beginning, End, Time};
 
-// Data format for the common ESS readout header
+  struct PulseTimes {
+    uint32_t PulseHigh;
+    uint32_t PulseLow;
+    uint32_t PrevPulseHigh;
+    uint32_t PrevPulseLow;
+  };
+
+  // Header common to all ESS readout data
+  // Reviewed ICD (version 2) packet header version 0
+  // ownCloud: https://project.esss.dk/nextcloud/index.php/s/DWNer23727TiI1x
   struct PacketHeaderV0 {
     uint8_t Padding0;
     uint8_t Version;
@@ -30,6 +39,24 @@ namespace ess::network {
     uint32_t PrevPulseHigh;
     uint32_t PrevPulseLow;
     uint32_t SeqNum;
+  } __attribute__((packed));
+
+  // Header common to all ESS readout data
+  // Reviewed ICD (version 2) packet header version 0
+  // ownCloud: https://project.esss.dk/nextcloud/index.php/s/DWNer23727TiI1x
+  struct PacketHeaderV1 {
+    uint8_t Padding0;
+    uint8_t Version;
+    uint32_t CookieAndType;
+    uint16_t TotalLength;
+    uint8_t OutputQueue;
+    uint8_t TimeSource;
+    uint32_t PulseHigh;
+    uint32_t PulseLow;
+    uint32_t PrevPulseHigh;
+    uint32_t PrevPulseLow;
+    uint32_t SeqNum;
+    uint16_t CMACPadd; // these two bytes are the reason for shifting the data pointer in AR51 message handling
   } __attribute__((packed));
 
   struct CAENReadout {
@@ -48,39 +75,54 @@ namespace ess::network {
   } __attribute__((packed));
 
 
+  // Data format for VMM3a based readout
+  struct VMM3aReadout {
+    uint8_t Fiber;
+    uint8_t FEN;
+    uint16_t Length;
+    uint32_t TimeHi;
+    uint32_t TimeLo;
+    uint16_t BC;
+    uint16_t OTADC;
+    uint8_t GEO;
+    uint8_t TDC;
+    uint8_t VMM;
+    uint8_t Channel;
+  } __attribute__((packed));
+
+
+  // Data format for CDT Readout
+  struct CDTReadout {
+    uint8_t Fiber;
+    uint8_t FEN;
+    uint16_t Length;
+    uint32_t TimeHi;
+    uint32_t TimeLo;
+    uint8_t OM;
+    uint8_t UnitId;
+    uint8_t Cathode;
+    uint8_t Anode;
+  } __attribute__((packed));
+
+
 /// \brief setup librdkafka parameters for Broker and Topic
-  RdKafka::KafkaConsumer * subscribe_topic(Configuration & Config, const std::vector<std::pair<std::string, std::string>> & kafkaConfig);
+  RdKafka::KafkaConsumer * subscribe_topic(const Configuration & Config, const std::vector<std::pair<std::string, std::string>> & kafkaConfig);
 
-  int64_t consume_all(Configuration & configuration, int32_t partition, RdKafka::KafkaConsumer * consumer);
-  int64_t consume_from(Configuration & configuration, int32_t partition, RdKafka::KafkaConsumer * consumer, std::optional<kafka::time::milliseconds> since_epoch);
-  int64_t consume_until(Configuration & configuration, int32_t partition, RdKafka::KafkaConsumer * consumer, int64_t early, std::optional<kafka::time::milliseconds> since_epoch);
-//
-//  void set_topic_partition_offset(
-//      Configuration & configuration,
-//      int32_t partition,
-//      RdKafka::KafkaConsumer * consumer,
-//      std::vector<RdKafka::TopicPartition*>& tps,
-//      Start start,
-//      int64_t ms_since_utc_epoch
-//  );
-//
+  int64_t consume_all(Configuration & configuration, RdKafka::KafkaConsumer * consumer);
+  int64_t consume_from(Configuration & configuration, RdKafka::KafkaConsumer * consumer, std::optional<kafka::time::milliseconds> since_epoch);
+  int64_t consume_until(Configuration & configuration, RdKafka::KafkaConsumer * consumer, int64_t early, std::optional<kafka::time::milliseconds> since_epoch);
 
-  int32_t set_consumer_offset(
-      Configuration & configuration,
-      RdKafka::KafkaConsumer * consumer,
-      Start start,
-      int64_t ms_since_utc_epoch
-  );
+  void set_consumer_offset(Configuration & configuration, RdKafka::KafkaConsumer * consumer, Start start, int64_t ms_since_utc_epoch);
 
-  using DetectorTypeCallback = std::function<uint32_t(uint8_t*, int, uint32_t, uint32_t, uint32_t, uint32_t)>;
-  using DetectorCallbacksType = std::map<uint32_t, DetectorTypeCallback>;
+  using TypeCallback = std::function<uint32_t(const uint8_t*, int, const PulseTimes*)>;
+  using CallbacksType = std::map<uint32_t, TypeCallback>;
 
 /// \brief initial checks for kafka error messages
 /// \return Update if data is processed, Continue if no data, or Halt if finished or errored
-  std::tuple<Status, uint32_t> handle_message(int64_t early, int64_t late, RdKafka::Message * message, DetectorCallbacksType & callbacks);
+  std::tuple<Status, uint32_t> handle_message(int64_t early, int64_t late, RdKafka::Message * message, CallbacksType & callbacks);
 
 /// \brief Main processing function for AR51 data
 /// \return number of processed events _in_ the message
-  uint32_t process_AR51_data(RdKafka::Message * Msg, DetectorCallbacksType & callbacks);
+  std::tuple<uint32_t, uint32_t> process_AR51_data(const RdKafka::Message * Msg, CallbacksType & callbacks);
 
 }

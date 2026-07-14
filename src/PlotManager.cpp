@@ -6,41 +6,31 @@
 /// \brief Implementation of plot interface for Fylgje
 //===----------------------------------------------------------------------===//
 #include "PlotManager.h"
-
-// Copyright (C) 2025 European Spallation Source, ERIC. See LICENSE file
-//===----------------------------------------------------------------------===//
-//
-/// \file
-//
-/// \brief Implementation of plot interface for Fylgje
-//===----------------------------------------------------------------------===//
-#include "PlotManager.h"
 #include "HistogramManager.h"
 
 // ── make_single / make_all_same / make_multi ─────────────────────────────────
 
-void PlotManager::make_single(Dim d, type_t t){
+void PlotManager::make_single(const Dim d, const type_t t){
   if (layout->rowCount() != 1 || layout->columnCount() != 1 || d != dims[0]){
     empty_layout();
     if (Dim::one == d) make_1D(0, 0, false, t);
     if (Dim::two == d) make_2D(0, 0, false, t);
   }
   // In the single-plot view give axes full room to show their labels
-  auto k = key(0, 0);
-  if (plots.count(k)){
-    bool type_changed = !types.count(k) || types.at(k) != t;
+  if (const auto k = key(0, 0); plots.count(k)){
+    const bool type_changed = !types.count(k) || types.at(k) != t;
     types[k] = t;
     if (type_changed) user_zoomed.erase(k);   // new type → new data, reset zoom
     set_axis_labels(0, 0);
-    plots[k]->axisRect()->setAutoMargins(QCP::msAll);
+    // plots[k]->axisRect()->setAutoMargins(QCP::msAll);
   }
 }
 
-void PlotManager::make_all_same(Dim d, type_t t){
+void PlotManager::make_all_same(const Dim d, const type_t t){
   for (int i=0; i<3; ++i) {
     for (int j=0; j<3; ++j) {
-      auto k = key(i, j);
-      bool exists = layout->itemAtPosition(i, j) != nullptr;
+      const auto k = key(i, j);
+      const bool exists = layout->itemAtPosition(i, j) != nullptr;
       // Recreate only when the dimensionality changes
       if (exists && d != dims[k]) remove(i, j);
       if (!layout->itemAtPosition(i, j)) {
@@ -55,15 +45,15 @@ void PlotManager::make_all_same(Dim d, type_t t){
   }
 }
 
-void PlotManager::make_multi(std::array<type_t, 9> ts){
+void PlotManager::make_multi(const std::array<type_t, 9> &ts){
   for (int i=0; i<3; ++i) {
     for (int j=0; j<3; ++j) {
-      auto k = key(i, j);
-      Dim target_dim{i == 0 || j > 1 ? Dim::one : Dim::two};
-      bool flip = (i>0) & (j>1);
-      bool exists = layout->itemAtPosition(i, j) != nullptr;
-      bool wrong_dim  = exists && target_dim != dims[k];
-      bool wrong_flip = exists && !wrong_dim && flipped.count(k) && flipped.at(k) != flip;
+      const auto k = key(i, j);
+      const Dim target_dim{i == 0 || j > 1 ? Dim::one : Dim::two};
+      const bool flip = (i>0) & (j>1);
+      const bool exists = layout->itemAtPosition(i, j) != nullptr;
+      const bool wrong_dim  = exists && target_dim != dims[k];
+      const bool wrong_flip = exists && !wrong_dim && flipped.count(k) && flipped.at(k) != flip;
       // Recreate when dim or flip changes
       if (wrong_dim || wrong_flip) remove(i, j);
       if (!layout->itemAtPosition(i, j)) {
@@ -80,40 +70,44 @@ void PlotManager::make_multi(std::array<type_t, 9> ts){
 
 // ── plot() overloads ──────────────────────────────────────────────────────────
 
-void PlotManager::plot(int i, int j, const std::vector<double> & x, const std::vector<double> & y, double min, double max, bool is_log){
-  QVector<double> q_x(x.begin(), x.end());
-  QVector<double> q_y(y.begin(), y.end());
+void PlotManager::plot(const int i, const int j, const std::vector<double> & x, const std::vector<double> & y, const double min, const double max, const bool is_log){
+  const QVector<double> q_x(x.begin(), x.end());
+  const QVector<double> q_y(y.begin(), y.end());
   plot(i, j, &q_x, &q_y, min, max, is_log);
 }
 
-void PlotManager::plot(int i, int j, const QVector<double> * x, const QVector<double> * y, double min, double max, bool is_log){
-  auto k = key(i, j);
+void PlotManager::plot(const int i, const int j, const QVector<double> * x, const QVector<double> * y, const double min, const double max, const bool is_log){
+  const auto k = key(i, j);
   if (!dims.count(k) || dims.at(k) != Dim::one) return;
-  auto g = lines.at(k);
+  const auto g = lines.at(k);
   g->setData(*x, *y);
-  auto p = plots.at(k);
+  const auto p = plots.at(k);
+  bool updating_ranges{false};
   if (!user_zoomed.count(k) || !user_zoomed.at(k)) {
+    updating_ranges = true;
+    QSignalBlocker block_x(p->xAxis);
+    QSignalBlocker block_y(p->yAxis);
     in_range_update = true;
     QCPAxis * independent{flipped[k] ? p->yAxis : p->xAxis};
     independent->setRange(x->front(), x->back());
     QCPAxis * ax{flipped[k] ? p->xAxis : p->yAxis};
     ax->setScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
     ax->setRange(min - (max - min) / 40, max + (max - min) / 20);
-    in_range_update = false;
   }
   p->replot();
+  if (updating_ranges) in_range_update = false;
 }
 
-void PlotManager::plot_all_included_excluded(int i, int j, const std::vector<double> & std_x,
+void PlotManager::plot_all_included_excluded(const int i, const int j, const std::vector<double> & std_x,
                                 const std::optional<std::vector<double>> & all,
                                 const std::optional<std::vector<double>> & included,
                                 const std::optional<std::vector<double>> & excluded,
-                                double min, double max, bool is_log) {
+                                const double min, const double max, const bool is_log) {
   using ::bifrost::data::Filter;
-  auto k = key(i, j);
+  const auto k = key(i, j);
   if (!dims.count(k) || dims.at(k) != Dim::one) return;
 
-  QVector<double> x(std_x.begin(), std_x.end());
+  const QVector<double> x(std_x.begin(), std_x.end());
   if (all.has_value()) {
     lines.at(key(i, j, Filter::none))->setData(x, QVector<double>(all.value().begin(), all.value().end()));
   }
@@ -124,35 +118,42 @@ void PlotManager::plot_all_included_excluded(int i, int j, const std::vector<dou
     lines.at(key(i, j, Filter::negative))->setData(x, QVector<double>(excluded.value().begin(), excluded.value().end()));
   }
 
-  auto p = plots.at(k);
+  const auto p = plots.at(k);
+  bool updating_ranges{false};
   if (!user_zoomed.count(k) || !user_zoomed.at(k)) {
+    updating_ranges = true;
+    QSignalBlocker block_x(p->xAxis);
+    QSignalBlocker block_y(p->yAxis);
     in_range_update = true;
     QCPAxis * independent{flipped[k] ? p->yAxis : p->xAxis};
     independent->setRange(x.front(), x.back());
     QCPAxis * ax{flipped[k] ? p->xAxis : p->yAxis};
     ax->setScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
     ax->setRange(min - (max - min) / 40, max + (max - min) / 20);
-    in_range_update = false;
   }
   p->replot();
+  if (updating_ranges) in_range_update = false;
 }
 
-void PlotManager::plot(int i, int j, QCPColorMapData * data, double min, double max, bool is_log,
-          std::string_view gradient, bool is_inverted,
+void PlotManager::plot(const int i, const int j, QCPColorMapData * data, const double min, const double max, const bool is_log,
+          const std::string_view gradient, const bool is_inverted,
           const std::optional<std::vector<std::pair<double, double>>> & left,
           const std::optional<std::vector<std::pair<double, double>>> & center,
           const std::optional<std::vector<std::pair<double, double>>> & right){
-  auto k = key(i, j);
+  const auto k = key(i, j);
   if (!dims.count(k) || dims.at(k) != Dim::two) return;
   if (!images.count(k)) return;
-  auto im = images.at(k);
+  const auto im = images.at(k);
   im->setData(data);
-  auto p = plots.at(k);
+  const auto p = plots.at(k);
+  bool updating_ranges{false};
   if (!user_zoomed.count(k) || !user_zoomed.at(k)) {
+    updating_ranges = true;
+    QSignalBlocker block_x(p->xAxis);
+    QSignalBlocker block_y(p->yAxis);
     in_range_update = true;
     p->xAxis->setRange(0, ::bifrost::data::BIN2D);
     p->yAxis->setRange(0, ::bifrost::data::BIN2D);
-    in_range_update = false;
   }
   im->setGradient(named_colormap(gradient, is_inverted));
   im->setDataScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
@@ -174,27 +175,30 @@ void PlotManager::plot(int i, int j, QCPColorMapData * data, double min, double 
   };
   using ::bifrost::data::Filter;
   if (left.has_value()){
-    auto [x, y] = poly(left.value());
+    const auto [x, y] = poly(left.value());
     polygons[key(i, j, Filter::negative)]->addData(x, y);
   }
   if (center.has_value()){
-    auto [x, y] = poly(center.value());
+    const auto [x, y] = poly(center.value());
     polygons[key(i, j, Filter::none)]->addData(x, y);
   }
   if (right.has_value()){
-    auto [x, y] = poly(right.value());
+    const auto [x, y] = poly(right.value());
     polygons[key(i, j, Filter::positive)]->addData(x, y);
   }
   p->replot();
+  if (updating_ranges) in_range_update = false;
 }
 
 // ── Zoom reset ────────────────────────────────────────────────────────────────
 
-void PlotManager::reset_zoom(int i, int j) {
-  auto k = key(i, j);
+void PlotManager::reset_zoom(const int i, const int j) {
+  const auto k = key(i, j);
   user_zoomed.erase(k);
   // 2-D: reset to the full BIN2D range immediately so the user sees the change at once
   if (dims.count(k) && dims.at(k) == Dim::two && plots.count(k)) {
+    QSignalBlocker block_x(plots[k]->xAxis);
+    QSignalBlocker block_y(plots[k]->yAxis);
     in_range_update = true;
     plots[k]->xAxis->setRange(0, ::bifrost::data::BIN2D);
     plots[k]->yAxis->setRange(0, ::bifrost::data::BIN2D);
@@ -205,37 +209,37 @@ void PlotManager::reset_zoom(int i, int j) {
 
 // ── Per-cell accessors ────────────────────────────────────────────────────────
 
-PlotManager::Dim PlotManager::dim(int i, int j) const {
-  auto k = key(i, j);
+PlotManager::Dim PlotManager::dim(const int i, const int j) const {
+  const auto k = key(i, j);
   return dims.count(k) ? dims.at(k) : Dim::none;
 }
-PlotManager::type_t PlotManager::type_at(int i, int j) const {
-  auto k = key(i, j);
+PlotManager::type_t PlotManager::type_at(const int i, const int j) const {
+  const auto k = key(i, j);
   return types.count(k) ? types.at(k) : type_t::unknown;
 }
-bool PlotManager::is_flipped(int i, int j) const {
-  auto k = key(i, j);
+bool PlotManager::is_flipped(const int i, const int j) const {
+  const auto k = key(i, j);
   return flipped.count(k) && flipped.at(k);
 }
-QCustomPlot * PlotManager::plot_at(int i, int j) const {
-  auto k = key(i, j);
+QCustomPlot * PlotManager::plot_at(const int i, const int j) const {
+  const auto k = key(i, j);
   return plots.count(k) ? plots.at(k) : nullptr;
 }
-QCPColorMap * PlotManager::image_at(int i, int j) const {
-  auto k = key(i, j);
+QCPColorMap * PlotManager::image_at(const int i, const int j) const {
+  const auto k = key(i, j);
   return images.count(k) ? images.at(k) : nullptr;
 }
 
 // ── make_plot / make_1D / make_2D / set_axis_labels ──────────────────────────
 
-void PlotManager::make_plot(int i, int j, bool flip, type_t t){
-  auto item = layout->itemAtPosition(i, j);
-  if (!item){
-    auto p = new QCustomPlot();
+void PlotManager::make_plot(const int i, const int j, const bool flip, const type_t t){
+  if (const auto item = layout->itemAtPosition(i, j); !item){
+    const auto p = new QCustomPlot();
     p->axisRect()->setAutoMargins(QCP::msNone);
     p->xAxis->setTicks(false);
     p->yAxis->setTicks(false);
     p->xAxis->setTickPen(QPen(Qt::NoPen));
+    //p->yAxis->setTickPen(QPen(Qt::NoPen));
     layout->addWidget(p, i, j);
     plots[key(i, j)] = p;
     types[key(i, j)] = t;
@@ -265,9 +269,9 @@ void PlotManager::make_plot(int i, int j, bool flip, type_t t){
   }
 }
 
-void PlotManager::make_1D(int i, int j, bool flip, type_t t){
+void PlotManager::make_1D(const int i, const int j, const bool flip, const type_t t){
   using ::bifrost::data::Filter;
-  auto k = key(i, j);
+  const auto k = key(i, j);
   dims[k] = Dim::one;
   in_range_update = true;   // hold for the entire setup so no initial range change
   make_plot(i, j, flip, t);  // connects rangeChanged AFTER this returns
@@ -282,7 +286,7 @@ void PlotManager::make_1D(int i, int j, bool flip, type_t t){
       {{Filter::none, Qt::black}, {Filter::positive, Qt::darkGreen}, {Filter::negative, Qt::darkRed}}
   };
   for (const auto & [filter, color]: filter_color){
-    auto lk = key(i, j, filter);
+    const auto lk = key(i, j, filter);
     lines[lk] = new QCPGraph(flip ? plots[k]->yAxis : plots[k]->xAxis, flip ? plots[k]->xAxis : plots[k]->yAxis);
     lines[lk]->setLineStyle(QCPGraph::LineStyle::lsStepCenter);
     lines[lk]->setPen(QPen(color));
@@ -291,33 +295,36 @@ void PlotManager::make_1D(int i, int j, bool flip, type_t t){
   in_range_update = false;
 }
 
-void PlotManager::make_2D(int i, int j, bool flip, type_t t){
+void PlotManager::make_2D(const int i, const int j, const bool flip, const type_t t){
   using ::bifrost::data::Filter;
-  dims[key(i, j)] = Dim::two;
+  const auto k = key(i, j);
+  dims[k] = Dim::two;
   in_range_update = true;   // hold for the entire setup so no initial range change
   make_plot(i, j, flip, t);
-  auto p = plots[key(i, j)];
+  const auto p = plots[k];
+  QSignalBlocker block_x(p->xAxis);
+  QSignalBlocker block_y(p->yAxis);
   p->xAxis->setRange(0, n2);
   p->yAxis->setRange(0, n2);
   p->axisRect()->setupFullAxesBox();
 
-  auto m = new QCPColorMap(flip ? p->yAxis : p->xAxis, flip ? p->xAxis : p->yAxis);
+  const auto m = new QCPColorMap(flip ? p->yAxis : p->xAxis, flip ? p->xAxis : p->yAxis);
   m->data()->setSize(n2, n2);
   m->data()->setRange(QCPRange(0, n2-1), QCPRange(0, n2-1));
   m->setTightBoundary(false);
   m->setInterpolate(false);
 
-  auto s = new QCPColorScale(p);
+  const auto s = new QCPColorScale(p);
   m->setColorScale(s);   // may emit rangeChanged — safe while in_range_update is true
   m->setGradient(QCPColorGradient::gpGrayscale);
   m->rescaleDataRange();
-  images[key(i, j)] = m;
+  images[k] = m;
 
   std::vector<std::pair<Filter, QColor>> filter_color{
       {{Filter::none, Qt::green}, {Filter::positive, Qt::yellow}, {Filter::negative, Qt::magenta}}
   };
   for (const auto & [filter, color]: filter_color){
-    auto pk = key(i, j, filter);
+    const auto pk = key(i, j, filter);
     polygons[pk] = new QCPCurve(flip ? p->yAxis : p->xAxis, flip ? p->xAxis : p->yAxis);
     polygons[pk]->setLineStyle(QCPCurve::LineStyle::lsLine);
     polygons[pk]->setPen(QPen(color));
@@ -326,14 +333,14 @@ void PlotManager::make_2D(int i, int j, bool flip, type_t t){
   in_range_update = false;
 }
 
-void PlotManager::set_axis_labels(int i, int j) {
-  auto k = key(i, j);
+void PlotManager::set_axis_labels(const int i, const int j) {
+  const auto k = key(i, j);
   if (!plots.count(k) || !types.count(k)) return;
-  auto names = ::bifrost::data::axes_names(types.at(k));
-  bool flip = flipped.count(k) && flipped.at(k);
-  auto * p = plots.at(k);
+  const auto names = ::bifrost::data::axes_names(types.at(k));
+  const bool flip = flipped.count(k) && flipped.at(k);
+  const auto * p = plots.at(k);
   if (dims.at(k) == Dim::one) {
-    QString var = names.empty() ? "" : QString::fromStdString(names[0]);
+    const QString var = names.empty() ? "" : QString::fromStdString(names[0]);
     (flip ? p->yAxis : p->xAxis)->setLabel(var);
     (flip ? p->xAxis : p->yAxis)->setLabel("Count");
   } else if (dims.at(k) == Dim::two && names.size() >= 2) {
@@ -345,7 +352,7 @@ void PlotManager::set_axis_labels(int i, int j) {
 
 // ── named_colormap ────────────────────────────────────────────────────────────
 
-QCPColorGradient named_colormap(std::string_view name, bool invert){
+QCPColorGradient named_colormap(const std::string_view name, const bool invert){
   auto grad = QCPColorGradient();
   auto preset = QCPColorGradient::gpGrayscale;
   if (name == "gray" || name == "grey"){

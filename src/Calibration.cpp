@@ -191,6 +191,7 @@ void Calibration::setGroups(Groups groups) {
     {"date", calibration_in.dateString()},
     {"info", calibration_in.info()},
     {"instrument", calibration_in.instrument()},
+    {"pulse_height_upper", calibration_in.pulseHeightUpper()},
     {"groups", calibration_in.groupCount()},
     {"groupsize", calibration_in.elementCount()},
     {"parameters", calibration_in.groups()}}
@@ -221,5 +222,8 @@ void Calibration::setGroups(Groups groups) {
   calibration_out.setDate(json_calibration_in["date"].get<std::string>());
   calibration_out.setInfo(json_calibration_in["info"].get<std::string>());
   calibration_out.setInstrument(json_calibration_in["instrument"].get<std::string>());
+  if (json_calibration_in.contains("pulse_height_upper")) {
+    calibration_out.setPulseHeightUpper(json_calibration_in["pulse_height_upper"].get<int>());
+  }
   calibration_out.setGroups(parameters);
 }

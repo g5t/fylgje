@@ -8,8 +8,8 @@
 #pragma once
 
 int fylgje_app_gui(
-    Configuration & configuration,
-    Calibration & calibration,
+    const Configuration & configuration,
+    const Calibration & calibration,
     kafka::time::milliseconds from,
     std::optional<kafka::time::milliseconds> to = std::nullopt,
     const std::optional<std::string> & output_file = std::nullopt,

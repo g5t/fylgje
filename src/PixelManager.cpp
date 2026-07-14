@@ -46,7 +46,9 @@ bool bifrost::data::PixelManager::includes(int arc, int triplet, int a, int b) c
   auto unit_pos = calibration.unitPosition(g, tube, pos);
   if (unit_pos < 0 || unit_pos > 1) return false;
 
-//  return calibration.pulseHeightOK(g, tube, a+b);
+  auto pulse_height = a + b;
+  if (pulse_height > calibration.pulseHeightUpper()) return false;
+
   return true;
 }
 

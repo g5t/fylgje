@@ -12,13 +12,13 @@
 #include "AppWindow.h"
 
 int fylgje_app_gui(
-    Configuration & configuration,
-    Calibration & calibration,
-    kafka::time::milliseconds from,
-    std::optional<kafka::time::milliseconds> to,
+    const Configuration & configuration,
+    const Calibration & calibration,
+    const kafka::time::milliseconds from,
+    const std::optional<kafka::time::milliseconds> to,
     const std::optional<std::string> & output_file,
-    bool store_events,
-    bool store_pixels
+    const bool store_events,
+    const bool store_pixels
 ){
   int argc{1};
   std::string app_name{"fylgje"};

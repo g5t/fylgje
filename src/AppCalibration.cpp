@@ -8,6 +8,9 @@
 #include <QTableWidget>
 #include <QStringList>
 #include <QLineEdit>
+#include <QLabel>
+#include <QSpinBox>
+#include <limits>
 
 #include "AppWindow.h"
 #include "./ui_AppWindow.h"
@@ -34,11 +37,29 @@ void MainWindow::setup_calibration_info(){
   ui->calibrationTime->setDisplayFormat(date_time_format.c_str());
   ui->calibrationTime->setDateTime(then);
   ui->calibrationTime->setReadOnly(true);
+
+  if (!calibration_pulse_height_upper) {
+    auto * label = new QLabel("A+B max", this);
+    label->setToolTip("Upper pulse-height threshold used for event inclusion");
+    calibration_pulse_height_upper = new QSpinBox(this);
+    calibration_pulse_height_upper->setMinimum(0);
+    calibration_pulse_height_upper->setMaximum((std::numeric_limits<int>::max)());
+    calibration_pulse_height_upper->setToolTip("Events with A+B above this value are excluded");
+    layout->addWidget(label);
+    layout->addWidget(calibration_pulse_height_upper);
+    connect(calibration_pulse_height_upper, QOverload<int>::of(&QSpinBox::valueChanged), this, [&](int value){
+      calibration.setPulseHeightUpper(value);
+    });
+  }
+  calibration_pulse_height_upper->setValue(calibration.pulseHeightUpper());
 }
 
 void MainWindow::update_calibration_info(){
   ui->calibrationInfo->setText(calibration.info().c_str());
   ui->calibrationTime->setDateTime(QDateTime::fromSecsSinceEpoch(calibration.date()));
+  if (calibration_pulse_height_upper) {
+    calibration_pulse_height_upper->setValue(calibration.pulseHeightUpper());
+  }
 }
 
 void MainWindow::setup_calibration_table(){

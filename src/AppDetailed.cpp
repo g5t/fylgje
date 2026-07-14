@@ -58,7 +58,7 @@ void MainWindow::on_plot_clicked(int i, int j, QMouseEvent * event) {
       } else if (pt == PlotType::Types) {
         // 9-types → single: remember source, fix the clicked type
         _previous_plot_type = PlotType::Types;
-        auto t = type_order[i * 3 + j];
+        auto t = type_of_order(i * 3 + j);
         {QSignalBlocker b(ui->intTypeBox); ui->intTypeBox->setChecked(true);}
         _fixed_type = t;
         set_type_radio(t);
@@ -90,7 +90,7 @@ void MainWindow::on_plot_clicked(int i, int j, QMouseEvent * event) {
       } else if (pt == PlotType::Types) {
         // 9-types → switch to 9-triplets for the clicked type
         _previous_plot_type = PlotType::Triplets;
-        auto t = type_order[i * 3 + j];
+        auto t = type_of_order(i * 3 + j);
         {QSignalBlocker b(ui->intTypeBox); ui->intTypeBox->setChecked(true);}
         {QSignalBlocker b(ui->tripletBox); ui->tripletBox->setChecked(false);}
         _fixed_type = t;

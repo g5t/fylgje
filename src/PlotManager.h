@@ -30,8 +30,11 @@ public:
   /// Callback type for double-click events (receives cell coords only)
   using dbl_cb_t   = std::function<void(int i, int j)>;
 
-  PlotManager(layout_t * l, int n1, int n2): layout(l), n1(n1), n2(n2) {
-      dims[0] = Dim::none;
+  PlotManager(layout_t * l, const int n1, const int n2): layout(l), n1(n1), n2(n2) {
+    if (!layout) {
+      throw std::runtime_error("PlotManager: layout pointer is null");
+    }
+    dims[0] = Dim::none;
   }
 
   /// \brief (Re)set the plot layout to a single 1-D or 2-D plot
@@ -41,7 +44,7 @@ public:
   void make_all_same(Dim d, type_t t);
 
   /// \brief (Re)set the plot layout to 9 different 1-D and 2-D plots
-  void make_multi(std::array<type_t, 9> ts);
+  void make_multi(const std::array<type_t, 9> &ts);
 
   /// \brief Plot a 1D histogram convenience function converting to QVectors
   void plot(int i, int j, const std::vector<double> & x, const std::vector<double> & y, double min, double max, bool is_log);
@@ -81,15 +84,15 @@ public:
 
 
 private:
-  [[nodiscard]] inline int key(int i, int j, ::bifrost::data::Filter filter = ::bifrost::data::Filter::none) const {
-      using ::bifrost::data::Filter;
-      auto index = static_cast<int>(filter);
-      return i + n1 * j + n1 * n2 * index;
-    }
-    void make_plot(int i, int j, bool flip, type_t t);
-    void make_1D(int i, int j, bool flip, type_t t);
-    void make_2D(int i, int j, bool flip, type_t t);
-    void set_axis_labels(int i, int j);
+  [[nodiscard]] int key(const int i, const int j, const ::bifrost::data::Filter filter = ::bifrost::data::Filter::none) const {
+    using ::bifrost::data::Filter;
+    const auto index = static_cast<int>(filter);
+    return i + n1 * j + n1 * n2 * index;
+  }
+  void make_plot(int i, int j, bool flip, type_t t);
+  void make_1D(int i, int j, bool flip, type_t t);
+  void make_2D(int i, int j, bool flip, type_t t);
+  void set_axis_labels(int i, int j);
 
 private:
   layout_t * layout{};
@@ -125,14 +128,13 @@ private:
     polygons.clear();
   }
 
-  void remove(int i, int j){
-    auto item = layout->itemAtPosition(i, j);
-    if (item){
+  void remove(const int i, const int j){
+    if (const auto item = layout->itemAtPosition(i, j)){
       layout->removeItem(item);
       delete item->widget();
       delete item;
     }
-    auto k = key(i, j);
+    const auto k = key(i, j);
     if (plots.count(k)) plots.erase(k);
     if (images.count(k)) images.erase(k);
     if (lines.count(k)) lines.erase(k);

@@ -12,15 +12,12 @@
 
 /**
  * @brief Convert packet header and data times to seconds since reference time
- * @param pulse_hi Latest header reference time integer seconds since epoch
- * @param pulse_lo Latest header reference time 88.053 MHz ticks since pulse_hi
- * @param prev_hi Previous header reference time integer seconds since epoch
- * @param prev_lo Previous header reference time 88.053 MHz ticks since prev_hi
+ * @param header Header reference times for this and the previous ticks
  * @param high Event reference time integer seconds since epoch
  * @param low Event reference time 88.053 MHz ticks since high
  * @return A positive double representing the time in seconds since _a_ reference time
  */
-std::tuple<double, uint32_t, uint32_t> frame_time(uint32_t pulse_hi, uint32_t pulse_lo, uint32_t prev_hi, uint32_t prev_lo, uint32_t high, uint32_t low){
+std::tuple<double, uint32_t, uint32_t> frame_time(const ess::network::PulseTimes * header, uint32_t high, uint32_t low){
   auto converter = [high,low](uint32_t h, uint32_t l) {
     // low is allowed to be less than l, in which case direct subtraction would yield a large positive integer
     // if the cast to int is not done before subtraction.
@@ -30,14 +27,14 @@ std::tuple<double, uint32_t, uint32_t> frame_time(uint32_t pulse_hi, uint32_t pu
   };
   double time{0.};
   uint32_t p_hi, p_lo;
-  if (high > pulse_hi || (high == pulse_hi && low > pulse_lo)){
-    time =  converter(pulse_hi, pulse_lo);
-    p_hi = pulse_hi;
-    p_lo = pulse_lo;
-  } else if (high > prev_hi || (high == prev_hi && low > prev_lo)){
-    time = converter(prev_hi, prev_lo);
-    p_hi = prev_hi;
-    p_lo = prev_lo;
+  if (high > header->PulseHigh || (high == header->PulseHigh && low > header->PulseLow)){
+    time =  converter(header->PulseHigh, header->PulseLow);
+    p_hi = header->PulseHigh;
+    p_lo = header->PulseLow;
+  } else if (high > header->PrevPulseHigh || (high == header->PrevPulseHigh && low > header->PrevPulseLow)){
+    time = converter(header->PrevPulseHigh, header->PrevPulseLow);
+    p_hi = header->PrevPulseHigh;
+    p_lo = header->PrevPulseLow;
   } else {
     // Hopefully impossible case
     p_hi = 0;

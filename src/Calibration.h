@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <optional>
 #include <cstring>
+#include <limits>
 
 
 ///\brief Raise a runtime error if the provided vector is not sorted by index
@@ -198,6 +199,12 @@ public:
     return &(groups_[group].elements[unit]);
   }
 
+  ///\brief Get the upper pulse-height threshold (A+B) used for event inclusion
+  [[nodiscard]] int pulseHeightUpper() const { return pulse_height_upper_; }
+
+  ///\brief Set the upper pulse-height threshold (A+B) used for event inclusion
+  void setPulseHeightUpper(int value) { pulse_height_upper_ = value; }
+
 private:
   ///\param version_ the calibration-schema version
   int version_{};
@@ -207,6 +214,8 @@ private:
   std::string info_;
   ///\param instrument_ the name of the instrument being calibrated, likely one of the ESS instruments
   std::string instrument_;
+  ///\param pulse_height_upper_ upper pulse-height threshold (A+B) for event inclusion
+  int pulse_height_upper_{(std::numeric_limits<int>::max)()};
   ///\param groups_ the vector of CalibrationGroups
   Groups groups_;
 };

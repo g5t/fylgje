@@ -37,6 +37,7 @@ set(${core_target}_inc
   Network.h
   PixelManager.h
   Time.h
+  Version.h
 )
 
 add_library(

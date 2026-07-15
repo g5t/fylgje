@@ -6,6 +6,7 @@
 /// \brief fylgje interface to handle events from AR51 format messages
 //===----------------------------------------------------------------------===//
 #include "EventManager.h"
+#include "Version.h"
 
 
 bool bifrost::data::EventManager::add(const bifrost::message_t & message){
@@ -31,8 +32,8 @@ bool bifrost::data::EventManager::add(int fiber, int group, int a, int b, double
 
 
 void bifrost::data::EventManager::save_to(const hdf5::node::Group & parent) const {
-  std::string creator{"fylgje"};
-  std::string version{"v0.0.1"};
+  std::string creator{fylgje::creator};
+  std::string version{fylgje::version};
   std::string instrument{"BIFROST"};
 
   // create a group for the data
@@ -127,8 +128,8 @@ void bifrost::data::EventManager::open_file(const std::filesystem::path & file, 
   {
     auto gr = hdf5_file.root().create_group(name);
     auto events = gr.create_group("events");
-    events.attributes.create_from("creator", std::string{"fylgje"});
-    events.attributes.create_from("version", std::string{"v0.0.1"});
+    events.attributes.create_from("creator", std::string{fylgje::creator});
+    events.attributes.create_from("version", std::string{fylgje::version});
     events.attributes.create_from("instrument", std::string{"BIFROST"});
     if (store_events) {
       // appendable: chunked with unlimited extent, grown at each flush

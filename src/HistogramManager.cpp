@@ -10,6 +10,7 @@
 #include <sstream>
 
 #include "HistogramManager.h"
+#include "Version.h"
 
 int bifrost::data::hist_a_or_b(int x, int shift, int bins){
   int y = x >> shift;
@@ -217,8 +218,8 @@ std::vector<uint64_t> bifrost::data::HistogramManager::type_dimensions(Type type
 
 
 void bifrost::data::HistogramManager::create_in(const hdf5::node::Group & parent) const {
-  std::string creator{"fylgje"};
-  std::string version{"v0.0.1"};
+  std::string creator{fylgje::creator};
+  std::string version{fylgje::version};
   std::string instrument{"BIFROST"};
 
   // create a group for the data

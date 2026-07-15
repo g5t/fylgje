@@ -15,6 +15,7 @@
 #include "Configuration.h"
 #include "Calibration.h"
 #include "Time.h"
+#include "Version.h"
 
 void print_licenses(const std::string & which){
   std::map<std::string, std::string> licenses{
@@ -81,6 +82,7 @@ int main(int argc, char *argv[]){
 
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::Flag verbose(parser, "verbose", "Print additional information", {'v', "verbose"});
+    args::Flag version_flag(parser, "version", "Print the fylgje version and exit", {'V', "version"});
 
     auto now = std::time({});
     char timeString[std::size("yyyy-mm-ddThh:mm:ssZ")];
@@ -120,6 +122,11 @@ int main(int argc, char *argv[]){
       std::cerr << e.what() << std::endl;
       std::cerr << parser;
       return 1;
+    }
+
+    if (version_flag) {
+      std::cout << fmt::format("{} {}\n", fylgje::creator, fylgje::version);
+      return 0;
     }
 
     if (license_flag) {

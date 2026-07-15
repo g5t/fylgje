@@ -6,6 +6,7 @@
 /// \brief fylgje interface to assign pixel IDs like the EFU
 //===----------------------------------------------------------------------===//
 #include "PixelManager.h"
+#include "Version.h"
 
 ///\brief Replicate the EFU calculations to identify a unique pixel number
 ///\returns 0 if no valid pixel
@@ -58,8 +59,8 @@ int bifrost::data::PixelManager::group(int arc, int triplet) const {
 
 
 void bifrost::data::PixelManager::create_in(const hdf5::node::Group & parent) const {
-  std::string creator{"fylgje"};
-  std::string version{"v0.0.1"};
+  std::string creator{fylgje::creator};
+  std::string version{fylgje::version};
   std::string instrument{"BIFROST"};
 
   // create a group for the data

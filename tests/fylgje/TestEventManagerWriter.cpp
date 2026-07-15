@@ -15,6 +15,7 @@
 #include "EventManager.h"
 #include "HistogramManager.h"
 #include "PixelManager.h"
+#include "Version.h"
 
 namespace {
 
@@ -82,6 +83,13 @@ TEST_F(EventManagerWriterTest, AppendsAcrossFlushes) {
     EXPECT_EQ(readback[n].a, 100 + n) << "message " << n;
     EXPECT_EQ(readback[n].b, 200 + n) << "message " << n;
     EXPECT_DOUBLE_EQ(readback[n].time, 0.1 * n) << "message " << n;
+  }
+
+  // the version attribute comes from the shared fylgje_core definition
+  for (const auto & group_name: {"events", "histograms", "pixels"}) {
+    std::string version;
+    file.root().get_group("fylgje").get_group(group_name).attributes["version"].read(version);
+    EXPECT_EQ(version, fylgje::version) << group_name;
   }
 
   // histogram and pixel trees were created and written

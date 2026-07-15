@@ -225,7 +225,7 @@ namespace bifrost::data {
     bool add_2D(int arc, int triplet, int a, int b, double time, bool allowed);
 
   public:
-    std::vector<uint64_t> type_dimensions(Type type) const;
+    [[nodiscard]] std::vector<uint64_t> type_dimensions(Type type) const;
 
     void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
     void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;

@@ -5,6 +5,7 @@
 ///
 /// \brief Utilities to help convert times to Kafka's standard: milliseconds since epoch
 //===----------------------------------------------------------------------===//
+#include <cctype>
 #include <iostream>
 #include <iomanip>
 #include <chrono>
@@ -63,7 +64,17 @@ milliseconds kafka::time::duration_string_to_milliseconds(const std::string & du
   if (duration_str.empty()){
     return std::chrono::milliseconds(0);
   }
-  auto count = std::stoi(duration_str);
+  int count{0};
+  try {
+    count = std::stoi(duration_str);
+  } catch (const std::exception &) {
+    std::cout << "Unknown duration string " << duration_str << std::endl;
+    return std::chrono::milliseconds(0);
+  }
+  if (std::isdigit(static_cast<unsigned char>(duration_str.back()))){
+    // no unit suffix: interpret the bare number as seconds
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::seconds(count));
+  }
   if (duration_str.back() == 'd'){
     auto days = std::chrono::hours(24 * count);
     return std::chrono::duration_cast<std::chrono::milliseconds>(days);
@@ -77,7 +88,8 @@ milliseconds kafka::time::duration_string_to_milliseconds(const std::string & du
     return std::chrono::duration_cast<std::chrono::milliseconds>(minutes);
   }
   if (duration_str.back() == 's'){
-    auto prev = *(std::end(duration_str)-1);
+    // the character before the trailing 's' distinguishes ms/us/ns from plain seconds
+    auto prev = duration_str.size() > 1 ? *(std::end(duration_str)-2) : '\0';
     if (prev == 'm'){
       auto milliseconds = std::chrono::milliseconds(count);
       return std::chrono::duration_cast<std::chrono::milliseconds>(milliseconds);

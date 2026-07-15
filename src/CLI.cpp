@@ -68,7 +68,10 @@ int fylgje_app_cli(
   const bool periodic = write_every.count() > 0;
   data->open_file(output_file.value_or("fylgje.h5"), std::nullopt, periodic);
   if (periodic) {
+    fmt::print("Writing collected data to file every {} s\n", write_every.count() / 1000.0);
     worker->setPeriodicCallback(std::chrono::milliseconds{write_every.count()}, [&data]{ data->flush(); });
+  } else {
+    fmt::print("Periodic writing disabled; the file is written once at exit\n");
   }
 
   cli_interrupted.store(false);

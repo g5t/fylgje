@@ -15,6 +15,7 @@ add_executable(fylgje_mock_tests
         fylgje/MockKafkaCluster.h
         fylgje/TestConsumerMockCluster.cpp
         fylgje/TestEventManagerWriter.cpp
+        fylgje/TestTime.cpp
 )
 target_link_libraries(fylgje_mock_tests
         PRIVATE fylgje_core

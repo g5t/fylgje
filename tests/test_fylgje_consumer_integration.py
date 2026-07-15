@@ -18,6 +18,7 @@ Intended to be invoked from CTest, but also runs standalone:
 Exit code 0 = pass, non-zero = fail.
 """
 
+import signal
 import socket
 import subprocess
 import sys
@@ -178,18 +179,38 @@ def run_consumer_under_test(
         topic: str,
         extra_args: Tuple[str, ...],
         timeout: int = 60,
+        interrupt_after: Optional[float] = None,
 ) -> subprocess.CompletedProcess:
-    cmd = [
-        str(consumer_exe),
-        "-b", bootstrap_servers,
-        "-t", topic,
-        *extra_args
-    ]
-    click.echo(f"[itest] running consumer under test: {' '.join(cmd)}")
-    # a fresh working directory per run: the consumer writes its HDF5 output
-    # to the cwd (unless -o points elsewhere) and refuses to overwrite
+    # a fresh working directory per run: the consumer refuses to overwrite an
+    # existing output file, so give it one that cannot pre-exist
     with tempfile.TemporaryDirectory(prefix="fylgje-itest-") as workdir:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=workdir)
+        output_h5 = Path(workdir) / "consumer-output.h5"
+        cmd = [
+            str(consumer_exe),
+            "-b", bootstrap_servers,
+            "-t", topic,
+            "-o", str(output_h5),
+            *extra_args
+        ]
+        click.echo(f"[itest] running consumer under test: {' '.join(cmd)}")
+        if interrupt_after is None:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=workdir)
+        else:
+            # open-ended consumer: let it collect, then ask it to stop and save
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    text=True, cwd=workdir)
+            try:
+                time.sleep(interrupt_after)
+                click.echo(f"[itest] sending SIGINT after {interrupt_after}s")
+                proc.send_signal(signal.SIGINT)
+                out, err = proc.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out, err = proc.communicate()
+            result = subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+        # checked while the temp dir still exists
+        result.output_file_written = output_h5.exists() and output_h5.stat().st_size > 0
+        return result
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -236,6 +257,11 @@ def run_consumer_under_test(
          "one; the topic is still created (with a unique suffix) and the "
          "stream uploaded.",
 )
+@click.option(
+    "--interrupt-after", type=float, default=None,
+    help="Run the consumer open-ended (pass no --to in --consumer-arg), send "
+         "SIGINT after this many seconds, and expect a clean stop-and-save.",
+)
 
 def cli(
         consumer_exe: Path,
@@ -247,6 +273,7 @@ def cli(
         partitions: Optional[int],
         replication_factor: int,
         bootstrap_servers: Optional[str],
+        interrupt_after: Optional[float],
 ):
     """Run the Kafka consumer integration test.
 
@@ -264,6 +291,7 @@ def cli(
             partitions=partitions,
             replication_factor=replication_factor,
             bootstrap_servers=bootstrap_servers,
+            interrupt_after=interrupt_after,
         )
     )
 
@@ -288,6 +316,7 @@ def run(
         partitions: Optional[int],
         replication_factor: int,
         bootstrap_servers: Optional[str] = None,
+        interrupt_after: Optional[float] = None,
 ) -> int:
     from scripts.kafka_uploader import scan_file
     if not expected_count or not partitions:
@@ -308,7 +337,8 @@ def run(
         click.echo(f"[itest] uploaded {upload_count} messages; "
                    f"expecting consumer to see {expected_count}")
 
-        result = run_consumer_under_test(consumer_exe, servers, topic, consumer_args)
+        result = run_consumer_under_test(consumer_exe, servers, topic, consumer_args,
+                                         interrupt_after=interrupt_after)
 
         click.echo("---- consumer stdout ----")
         click.echo(result.stdout)
@@ -317,6 +347,10 @@ def run(
 
         if result.returncode != 0:
             click.echo(f"[itest] FAIL: consumer exited with code {result.returncode}", err=True)
+            return 1
+
+        if not getattr(result, "output_file_written", True):
+            click.echo("[itest] FAIL: consumer did not write its HDF5 output file", err=True)
             return 1
 
         # fylgje-cli prints a machine-readable summary after its run

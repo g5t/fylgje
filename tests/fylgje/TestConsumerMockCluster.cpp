@@ -228,6 +228,28 @@ TEST_F(ConsumerMockClusterTest, FutureWindowPicksUpLiveMessages) {
   EXPECT_LT(elapsed.count(), 25.0);
 }
 
+/// A live (no end time) consumer halts promptly when its stop flag is raised,
+/// as the CLI's SIGINT handler does, with everything consumed so far intact
+TEST_F(ConsumerMockClusterTest, StopFlagHaltsLiveConsumer) {
+  const auto sink = std::make_shared<CountingSink>();
+  std::atomic<bool> stop{false};
+  int64_t messages{-1};
+  const auto start = std::chrono::steady_clock::now();
+  std::thread consumer_thread([&] {
+    // live mode: from-only constructor, would otherwise run forever
+    ESSConsumer<CountingSink> consumer{sink, config, kafka::time::milliseconds{stream.t0_ms - 1'000}};
+    consumer.setStopFlag(&stop);
+    consumer.run();
+    messages = consumer.message_count();
+  });
+  std::this_thread::sleep_for(std::chrono::seconds(2));
+  stop.store(true);
+  consumer_thread.join();
+  const std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;
+  EXPECT_EQ(messages, stream.n_messages);
+  EXPECT_LT(elapsed.count(), 6.0); // ~2 s wait + <=1 s poll latency, with margin
+}
+
 }
 
 // explicit main: transitive dependencies drag in Catch2Main, whose main()

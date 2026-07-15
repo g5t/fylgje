@@ -14,6 +14,7 @@ add_executable(fylgje_mock_tests
         fylgje/SyntheticData.h
         fylgje/MockKafkaCluster.h
         fylgje/TestConsumerMockCluster.cpp
+        fylgje/TestEventManagerWriter.cpp
 )
 target_link_libraries(fylgje_mock_tests
         PRIVATE fylgje_core
@@ -71,5 +72,28 @@ set_tests_properties(fylgje_consumer_integration PROPERTIES
         LABELS "integration;podman"
         TIMEOUT 300
         # the script imports scripts.kafka_uploader relative to the tests dir
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# open-ended consumption stopped by SIGINT: the consumer must exit cleanly,
+# report its counts, and still write the HDF5 file (with periodic writes on)
+add_test(
+        NAME fylgje_consumer_interrupt
+        COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_fylgje_consumer_integration.py
+        --consumer-exe $<TARGET_FILE:fylgje-cli>
+        --stream-file ${synthetic_stream}
+        --topic itest-interrupt
+        --expected-count 300
+        --partitions 3
+        --interrupt-after 10
+        --consumer-arg=--from=2025-12-31T23:59:00Z
+        --consumer-arg=-e
+        --consumer-arg=--write-every=2s
+)
+set_tests_properties(fylgje_consumer_interrupt PROPERTIES
+        FIXTURES_REQUIRED synthetic_stream
+        LABELS "integration;podman"
+        TIMEOUT 300
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )

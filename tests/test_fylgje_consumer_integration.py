@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -72,11 +73,14 @@ def ephemeral_kafka(image: str = KAFKA_IMAGE, broker_port: Optional[int] = None)
         "CLUSTER_ID": "MkU3OEVBNTcwNTJENDM2Qk",
     }
 
-    click.echo(f"[itest] starting {image} ...")
+    # unique name so concurrent runs (e.g. ctest -j) cannot collide; the fixed
+    # prefix keeps any stray containers identifiable
+    container_name = f"{CONTAINER_NAME}-{uuid.uuid4().hex[:8]}"
+    click.echo(f"[itest] starting {image} as {container_name} ...")
     container = docker.run(
         image,
         detach=True,
-        name=CONTAINER_NAME,
+        name=container_name,
         envs=env,
         publish=[(broker_port, broker_port), (controller_port, controller_port)],
         remove=True,

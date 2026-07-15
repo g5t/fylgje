@@ -73,6 +73,8 @@ set_tests_properties(fylgje_consumer_integration PROPERTIES
         TIMEOUT 300
         # the script imports scripts.kafka_uploader relative to the tests dir
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        # one podman Kafka broker at a time, even under ctest -j
+        RESOURCE_LOCK "podman-kafka"
 )
 
 # open-ended consumption stopped by SIGINT: the consumer must exit cleanly,
@@ -96,4 +98,6 @@ set_tests_properties(fylgje_consumer_interrupt PROPERTIES
         LABELS "integration;podman"
         TIMEOUT 300
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        # one podman Kafka broker at a time, even under ctest -j
+        RESOURCE_LOCK "podman-kafka"
 )

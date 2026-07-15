@@ -18,5 +18,6 @@ int fylgje_app_cli(
     const std::optional<std::string> & output_file = std::nullopt,
     bool store_events = false,
     bool store_pixels = false,
-    bool store_histograms = false
+    bool store_histograms = false,
+    kafka::time::milliseconds write_every = kafka::time::milliseconds{60'000}
 );

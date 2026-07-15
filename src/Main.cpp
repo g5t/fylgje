@@ -97,6 +97,10 @@ int main(int argc, char *argv[]){
     args::ValueFlag<std::string> from_flag(parser, "from", "Start time for accumulation", {"from"}, timeString);
     args::ValueFlag<std::string> to_flag(parser, "to", "End time for accumulation", {"to"}, timeString);
     args::ValueFlag<std::string> duration_flag(parser, "duration", "Duration for accumulation", {"duration"}, "1h");
+    args::ValueFlag<std::string> write_flag(parser, "write-every",
+        "Periodically write collected data to the output file every <write-every> (CLI mode; 0s disables periodic"
+        " writing). While enabled the file is written in HDF5 SWMR mode, readable by other processes but requiring"
+        " HDF5 >= 1.10 tools.", {"write-every"}, "60s");
     args::ValueFlag<std::string> license_flag(parser, "license", "Print license information", {'l', "license"});
     args::Flag events_flag(parser, "events", "Store events in HDF5 file", {'e', "events"});
     args::Flag pixels_flag(parser, "pixels", "Store pixel data in HDF5 file", {'p', "pixels"});
@@ -185,8 +189,10 @@ int main(int argc, char *argv[]){
     gui = !cli_flag;
 #endif
 
+    auto write_every = kafka::time::duration_string_to_milliseconds(args::get(write_flag));
+
     return fylgje_app(Config, calibration, from_time, to_time, output_file, gui,
-                      events_flag, pixels_flag, histograms_flag);
+                      events_flag, pixels_flag, histograms_flag, write_every);
 }
 
 

@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <atomic>
+#include <functional>
 #include "Configuration.h"
 #include "ar51_readout_data_generated.h"
 #include <librdkafka/rdkafkacpp.h>
@@ -43,6 +45,9 @@ private:
   int64_t bad_readout_count{0};
   ess::network::PartitionWindow window;
   std::chrono::milliseconds maximum_idle{30'000};
+  const std::atomic<bool> * stop_flag{nullptr};
+  std::chrono::milliseconds callback_interval{0};
+  std::function<void()> periodic_callback;
 
   ess::network::CallbacksType callbacks{
     {3, std::bind(&ESSConsumer::parseCAENData, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)},
@@ -112,10 +117,24 @@ public:
   ///        lies in the future the consumer waits indefinitely for new data.
   void setMaximumIdle(std::chrono::milliseconds ms) { maximum_idle = ms; }
 
+  /// \brief run() halts (at ~1 s poll granularity) once the pointed-to flag
+  ///        becomes true; intended to be set from a signal handler
+  void setStopFlag(const std::atomic<bool> * flag) { stop_flag = flag; }
+
+  /// \brief run() invokes the callback whenever the interval has elapsed
+  ///        (checked once per ~1 s poll). The callback runs on run()'s thread,
+  ///        the same thread that fills the data sink in CLI use; any other
+  ///        arrangement needs its own synchronisation.
+  void setPeriodicCallback(std::chrono::milliseconds interval, std::function<void()> callback) {
+    callback_interval = interval;
+    periodic_callback = std::move(callback);
+  }
+
   void run(){
     using clock_t = std::chrono::steady_clock;
     Status intent{Status::Continue};
     auto last_activity = clock_t::now();
+    auto last_callback = clock_t::now();
     while (intent != Status::Halt) {
       const auto Msg = consume();
       auto [status, ar51s] = ess::network::handle_message(mConsumer, earliest_timestamp, latest_timestamp, Msg, callbacks, window);
@@ -125,6 +144,15 @@ public:
       }
       delete Msg;
       intent = status;
+      if (intent != Status::Halt && stop_flag != nullptr && stop_flag->load()) {
+        fmt::print("Stop requested; halting consumption\n");
+        intent = Status::Halt;
+      }
+      if (intent != Status::Halt && periodic_callback && callback_interval.count() > 0
+          && clock_t::now() - last_callback >= callback_interval) {
+        periodic_callback();
+        last_callback = clock_t::now();
+      }
       if (intent != Status::Halt && latest_timestamp >= 0
           && kafka::time::now_milliseconds().count() >= latest_timestamp) {
         // the window has closed: partitions that are caught up cannot receive

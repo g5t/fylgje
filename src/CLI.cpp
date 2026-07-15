@@ -5,6 +5,10 @@
 ///
 /// \brief CLI application entrypoint for fylgje
 //===----------------------------------------------------------------------===//
+#include <atomic>
+#include <csignal>
+#include <memory>
+
 #include "App.h"
 #include "CLI.h"
 
@@ -12,6 +16,16 @@
 #include "EventManager.h"
 #include "HistogramManager.h"
 #include "PixelManager.h"
+
+namespace {
+  std::atomic<bool> cli_interrupted{false};
+}
+
+/// \brief SIGINT: request a graceful stop; a second Ctrl-C terminates immediately
+extern "C" void fylgje_cli_on_sigint(int) {
+  cli_interrupted.store(true);
+  std::signal(SIGINT, SIG_DFL);
+}
 
 int fylgje_app_cli(
     Configuration & configuration,
@@ -21,7 +35,8 @@ int fylgje_app_cli(
     const std::optional<std::string> & output_file,
     bool store_events,
     bool store_pixels,
-    bool store_histograms
+    bool store_histograms,
+    kafka::time::milliseconds write_every
   ) {
   using namespace bifrost::data;
   auto tubes = configuration.Instrument.units_per_group;
@@ -40,17 +55,34 @@ int fylgje_app_cli(
   data->storePixels(store_pixels);
   data->storeEvents(store_events);
 
-  // TODO Instead of this, consume forever but put in a CTRL-C handler to
-  //      stop the consumer and save the data before exiting.
-  if (!to.has_value()){
-    fmt::print("<<<<\n WARNING No end time provided, using now \n>>>>\n");
-    to = kafka::time::time_t_to_milliseconds(kafka::time::now_to_time_t());
+  std::unique_ptr<ESSConsumer<EventManager>> worker;
+  if (to.has_value()){
+    worker = std::make_unique<ESSConsumer<EventManager>>(data, configuration, from, to.value());
+  } else {
+    fmt::print("No end time provided; consuming until interrupted (Ctrl-C to stop and save)\n");
+    worker = std::make_unique<ESSConsumer<EventManager>>(data, configuration, from);
   }
-  ESSConsumer<EventManager> worker{data, configuration, from, to.value()};
-  worker.run();
+
+  // open (and structure) the output file up front: any path problem surfaces
+  // now instead of after the consumption has finished
+  const bool periodic = write_every.count() > 0;
+  data->open_file(output_file.value_or("fylgje.h5"), std::nullopt, periodic);
+  if (periodic) {
+    worker->setPeriodicCallback(std::chrono::milliseconds{write_every.count()}, [&data]{ data->flush(); });
+  }
+
+  cli_interrupted.store(false);
+  worker->setStopFlag(&cli_interrupted);
+  const auto previous_handler = std::signal(SIGINT, fylgje_cli_on_sigint);
+  worker->run();
+  std::signal(SIGINT, previous_handler == SIG_ERR ? SIG_DFL : previous_handler);
+  if (cli_interrupted.load()) {
+    fmt::print("Interrupted; saving collected data\n");
+  }
+
   // machine-readable summary, relied upon by the integration test harness
-  fmt::print("messages_consumed={}\n", worker.message_count());
-  fmt::print("readouts_processed={}\n", worker.event_count());
-  data->save_to(output_file.value_or("fylgje.h5"));
+  fmt::print("messages_consumed={}\n", worker->message_count());
+  fmt::print("readouts_processed={}\n", worker->event_count());
+  data->close_file();
   return 0;
 }

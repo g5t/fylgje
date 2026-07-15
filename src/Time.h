@@ -22,5 +22,9 @@ namespace kafka::time {
   milliseconds time_t_to_milliseconds(std::time_t time);
   milliseconds time_string_to_milliseconds(const std::string & time_str);
   milliseconds duration_string_to_milliseconds(const std::string & duration_str);
+
+  /// \brief compact human-readable duration: 503ms, 3.4s, 12m03s, 1h02m03s
+  ///        (hours is the top unit; sub-second detail dropped above a minute)
+  std::string milliseconds_to_duration_string(milliseconds duration);
 }
 

@@ -108,3 +108,29 @@ milliseconds kafka::time::duration_string_to_milliseconds(const std::string & du
   std::cout << "Unknown duration string " << duration_str << std::endl;
   return std::chrono::milliseconds(0);
 }
+
+std::string kafka::time::milliseconds_to_duration_string(milliseconds duration){
+  auto ms = duration.count();
+  std::string sign;
+  if (ms < 0){
+    sign = "-";
+    ms = -ms;
+  }
+  if (ms == 0){
+    return "0s";
+  }
+  if (ms < 1'000){
+    return fmt::format("{}{}ms", sign, ms);
+  }
+  const auto seconds = ms / 1'000;
+  if (seconds < 60){
+    const auto tenths = (ms % 1'000) / 100;
+    return tenths ? fmt::format("{}{}.{}s", sign, seconds, tenths)
+                  : fmt::format("{}{}s", sign, seconds);
+  }
+  const auto minutes = seconds / 60;
+  if (minutes < 60){
+    return fmt::format("{}{}m{:02}s", sign, minutes, seconds % 60);
+  }
+  return fmt::format("{}{}h{:02}m{:02}s", sign, minutes / 60, minutes % 60, seconds % 60);
+}

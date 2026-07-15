@@ -183,6 +183,12 @@ public:
         ++flush_count;
         last_write_at = write_end;
         last_callback = write_end;
+        // the callback runs on this thread, so its duration must not count
+        // toward the max-idle safety net: a flush slower than maximum_idle
+        // would otherwise halt consumption with messages still buffered.
+        // Advance (rather than reset) the marker so genuine broker silence
+        // still accumulates across flushes.
+        last_activity += write_end - write_start;
       }
       if (intent != Status::Halt && progress_callback && progress_interval.count() > 0
           && clock_t::now() - last_progress >= progress_interval) {

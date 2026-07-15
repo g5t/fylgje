@@ -270,6 +270,44 @@ TEST_F(ConsumerMockClusterTest, ProgressCallbackAndStageTimers) {
   EXPECT_GE(consumer.since_last_write().value().count(), 0);
 }
 
+/// A periodic (write) callback slower than the max-idle timeout must not trip
+/// the idle safety net while messages are still buffered: the callback runs
+/// on the consuming thread and its duration is not broker idleness. This is
+/// the ISSUES.md data loss: an historical-window run with --write-every=60s
+/// halted via the idle net when a flush exceeded 30 s, dropping the unread
+/// tail of the stream.
+TEST_F(ConsumerMockClusterTest, SlowPeriodicWriteDoesNotTripIdleTimeout) {
+  // stalls on the very first readout so the 1 ms callback interval has
+  // certainly elapsed by the first flush check, whatever the poll timing:
+  // the flush then runs with the rest of the stream still buffered
+  struct SlowFirstSink {
+    int64_t readouts{0};
+    void add(int /*fiber*/, int /*group*/, int /*a*/, int /*b*/,
+             double /*time*/, uint32_t /*high*/, uint32_t /*low*/) {
+      if (readouts++ == 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+      }
+    }
+  };
+  const auto sink = std::make_shared<SlowFirstSink>();
+  ESSConsumer<SlowFirstSink> consumer{sink, config,
+                                      kafka::time::milliseconds{stream.t0_ms - 1'000},
+                                      kafka::time::milliseconds{stream.end_ms() + 1'000}};
+  consumer.setMaximumIdle(std::chrono::milliseconds{500});
+  int64_t flushes{0};
+  consumer.setPeriodicCallback(std::chrono::milliseconds{1}, [&flushes] {
+    if (flushes++ == 0) {
+      // one flush slower than the idle timeout, while messages remain buffered
+      std::this_thread::sleep_for(std::chrono::milliseconds{800});
+    }
+  });
+  consumer.run();
+  EXPECT_GE(flushes, 1);
+  EXPECT_EQ(consumer.message_count(), stream.n_messages);
+  EXPECT_EQ(consumer.event_count(),
+            static_cast<int64_t>(stream.n_messages) * stream.readouts_per_message);
+}
+
 /// A live (no end time) consumer halts promptly when its stop flag is raised,
 /// as the CLI's SIGINT handler does, with everything consumed so far intact
 TEST_F(ConsumerMockClusterTest, StopFlagHaltsLiveConsumer) {

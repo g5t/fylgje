@@ -92,7 +92,11 @@ void bifrost::data::PixelManager::create_in(const hdf5::node::Group & parent) co
 }
 
 void bifrost::data::PixelManager::write_to(const hdf5::node::Group & parent) const {
-  parent.get_group("pixels").get_dataset("data").write(pixel_data);
+  write_to(parent, pixel_data);
+}
+
+void bifrost::data::PixelManager::write_to(const hdf5::node::Group & parent, const data_t & snapshot) const {
+  parent.get_group("pixels").get_dataset("data").write(snapshot);
 }
 
 void bifrost::data::PixelManager::save_to(const hdf5::node::Group & parent) const {

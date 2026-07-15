@@ -91,5 +91,17 @@ namespace bifrost::data {
     void flush();
     void close_file();
     [[nodiscard]] bool file_is_open() const { return out_file.has_value(); }
+
+    // Async-writing support (see AsyncWriter). take_messages, buffered_bytes,
+    // and pixel_snapshot belong to the thread that calls add(); write_events,
+    // write_pixels, and file_flush touch only the HDF5 handles and must all
+    // run on a single writer thread, never concurrently with open_file,
+    // flush, or close_file (the HDF5 build is not thread-safe).
+    [[nodiscard]] std::vector<message_t> take_messages();
+    [[nodiscard]] size_t buffered_bytes() const { return messages.size() * sizeof(message_t); }
+    [[nodiscard]] PixelManager::data_t pixel_snapshot() const { return pixel_manager.counts(); }
+    void write_events(const std::vector<message_t> & batch);
+    void write_pixels(const PixelManager::data_t & snapshot);
+    void file_flush();
   };
 }

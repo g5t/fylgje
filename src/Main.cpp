@@ -12,6 +12,7 @@
 #include "args.hxx"
 
 #include "App.h"
+#include "Bytes.h"
 #include "Configuration.h"
 #include "Calibration.h"
 #include "Time.h"
@@ -107,9 +108,15 @@ int main(int argc, char *argv[]){
     args::ValueFlag<std::string> to_flag(parser, "to", "End time for accumulation, same format as --from; may lie in the future. CLI mode consumes until interrupted (Ctrl-C stops and saves) when omitted.", {"to"}, timeString);
     args::ValueFlag<std::string> duration_flag(parser, "duration", "Duration for accumulation, e.g. 90m, 30s, or bare seconds; combines with exactly one of --from/--to.", {"duration"}, "1h");
     args::ValueFlag<std::string> write_flag(parser, "write-every",
-        "Periodically write collected data to the output file every <write-every>, e.g. 30s, 5m, or a bare number"
-        " of seconds (CLI mode; 0 disables periodic writing). While enabled the file is written in HDF5 SWMR mode,"
-        " readable by other processes but requiring HDF5 >= 1.10 tools.", {"write-every"}, "60s");
+        "Write buffered events to the output file at least every <write-every>, e.g. 30s, 5m, or a bare number"
+        " of seconds (CLI mode; 0 disables the time trigger). While incremental writing is enabled it happens on"
+        " a background thread, the file is written in HDF5 SWMR mode (readable by other processes, requiring"
+        " HDF5 >= 1.10 tools), and histogram data is only written at exit.", {"write-every"}, "60s");
+    args::ValueFlag<std::string> buffer_flag(parser, "write-buffer",
+        "Write buffered events to the output file whenever they exceed <write-buffer>, e.g. 512M, 1G, or a bare"
+        " number of bytes; K/M/G suffixes are 1024-based (CLI mode; 0 disables the size trigger). Memory use is"
+        " bounded by a few times this size. If both --write-buffer and --write-every are 0 the file is written"
+        " once at exit.", {"write-buffer"}, "2G");
     args::ValueFlag<std::string> license_flag(parser, "license", "Print license information for <license>: fylgje or args.", {'l', "license"});
     args::Flag events_flag(parser, "events", "Store events in HDF5 file", {'e', "events"});
     args::Flag pixels_flag(parser, "pixels", "Store pixel data in HDF5 file", {'p', "pixels"});
@@ -204,9 +211,10 @@ int main(int argc, char *argv[]){
 #endif
 
     auto write_every = kafka::time::duration_string_to_milliseconds(args::get(write_flag));
+    auto write_buffer = fylgje::size_string_to_bytes(args::get(buffer_flag));
 
     return fylgje_app(Config, calibration, from_time, to_time, output_file, gui,
-                      events_flag, pixels_flag, histograms_flag, write_every, verbose);
+                      events_flag, pixels_flag, histograms_flag, write_every, verbose, write_buffer);
 }
 
 

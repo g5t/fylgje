@@ -13,6 +13,7 @@ set(gui_target fylgje)
 #=============================================================================
 
 set(${core_target}_src
+  AsyncWriter.cpp
   Bytes.cpp
   Calibration.cpp
   Configuration.cpp
@@ -27,6 +28,7 @@ set(${core_target}_src
 )
 
 set(${core_target}_inc
+  AsyncWriter.h
   Bytes.h
   Calibration.h
   Configuration.h
@@ -51,12 +53,15 @@ add_library(
 
 target_include_directories(${core_target} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
+find_package(Threads REQUIRED)
+
 target_link_libraries(
   ${core_target}
   PUBLIC fmt::fmt
   PUBLIC RdKafka::rdkafka++
   PUBLIC RdKafka::rdkafka
   PUBLIC h5cpp::h5cpp
+  PUBLIC Threads::Threads
 )
 
 target_link_libraries(${core_target}

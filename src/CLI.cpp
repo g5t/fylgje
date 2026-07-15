@@ -16,6 +16,8 @@
 #include "App.h"
 #include "CLI.h"
 
+#include "AsyncWriter.h"
+#include "Bytes.h"
 #include "ESSConsumer.h"
 #include "EventManager.h"
 #include "HistogramManager.h"
@@ -41,7 +43,8 @@ int fylgje_app_cli(
     bool store_pixels,
     bool store_histograms,
     kafka::time::milliseconds write_every,
-    bool verbose
+    bool verbose,
+    int64_t write_buffer
   ) {
   using namespace bifrost::data;
   auto tubes = configuration.Instrument.units_per_group;
@@ -70,11 +73,45 @@ int fylgje_app_cli(
 
   // open (and structure) the output file up front: any path problem surfaces
   // now instead of after the consumption has finished
-  const bool periodic = write_every.count() > 0;
+  const bool periodic = write_every.count() > 0 || write_buffer > 0;
   data->open_file(output_file.value_or("fylgje.h5"), std::nullopt, periodic);
+  std::optional<bifrost::data::AsyncWriter> writer;
   if (periodic) {
-    fmt::print("Writing collected data to file every {} s\n", write_every.count() / 1000.0);
-    worker->setPeriodicCallback(std::chrono::milliseconds{write_every.count()}, [&data]{ data->flush(); });
+    if (write_buffer > 0 && write_every.count() > 0) {
+      fmt::print("Writing to file when buffered events exceed {} or every {}\n",
+                 fylgje::bytes_to_size_string(write_buffer),
+                 kafka::time::milliseconds_to_duration_string(write_every));
+    } else if (write_buffer > 0) {
+      fmt::print("Writing to file when buffered events exceed {}\n",
+                 fylgje::bytes_to_size_string(write_buffer));
+    } else {
+      fmt::print("Writing to file every {}\n",
+                 kafka::time::milliseconds_to_duration_string(write_every));
+    }
+    if (store_histograms) {
+      fmt::print("Histogram data is written once at exit\n");
+    }
+    // writes happen on the AsyncWriter's thread, overlapping consumption; the
+    // periodic callback only checks the triggers and hands batches over (its
+    // duration, including any backpressure wait, is excluded from the
+    // consumer's idle budget). Until finish(), the writer thread is the only
+    // one allowed to touch the open HDF5 file.
+    writer.emplace(*data, &cli_interrupted);
+    worker->setPeriodicCallback(
+        std::chrono::milliseconds{100},
+        [&data, &writer, write_buffer, write_every, store_pixels,
+         last_handoff = std::chrono::steady_clock::now()]() mutable {
+          const auto now = std::chrono::steady_clock::now();
+          const bool by_size = write_buffer > 0
+              && data->buffered_bytes() >= static_cast<size_t>(write_buffer);
+          const bool by_time = write_every.count() > 0 && now - last_handoff >= write_every;
+          if (!by_size && !by_time) {
+            return;
+          }
+          writer->enqueue({data->take_messages(),
+                           store_pixels ? data->pixel_snapshot() : bifrost::data::PixelManager::data_t{}});
+          last_handoff = std::chrono::steady_clock::now();
+        });
   } else {
     fmt::print("Periodic writing disabled; the file is written once at exit\n");
   }
@@ -93,14 +130,16 @@ int fylgje_app_cli(
   };
   if (verbose) {
     const bool tty = isatty(fileno(stderr)) != 0;
-    auto progress = [&worker, &progress_line_open, duration_string, tty,
+    auto progress = [&worker, &writer, &progress_line_open, duration_string, tty,
                      run_start = std::chrono::steady_clock::now(),
                      last_length = std::size_t{0}]() mutable {
       auto line = fmt::format("consuming...  elapsed {} | {} messages | {} readouts",
                               duration_string(std::chrono::steady_clock::now() - run_start),
                               worker->message_count(), worker->event_count());
-      if (const auto since = worker->since_last_write(); since.has_value()) {
-        line += fmt::format(" | last write {} ago", duration_string(since.value()));
+      if (writer.has_value()) {
+        if (const auto since = writer->since_last_write(); since.has_value()) {
+          line += fmt::format(" | last write {} ago", duration_string(since.value()));
+        }
       }
       if (tty) {
         // pad over any leftover tail of a previously longer line
@@ -132,17 +171,49 @@ int fylgje_app_cli(
     fmt::print("Interrupted; saving collected data\n");
   }
 
-  // machine-readable summary, relied upon by the integration test harness
+  // machine-readable summary, relied upon by the integration test harness;
+  // printed before the writer drains so the counts appear promptly
   fmt::print("messages_consumed={}\n", worker->message_count());
   fmt::print("readouts_processed={}\n", worker->event_count());
+
+  int exit_code{0};
+  if (writer.has_value()) {
+    // say how much output work remains when it will take noticeable time:
+    // with large --write-buffer values the drain plus the final tail write
+    // can run for a while after consumption ends
+    if (const auto queued = writer->pending_batches();
+        queued > 0 || data->buffered_bytes() >= (size_t{64} << 20)) {
+      fmt::print("Writing remaining data to file ({} queued batch(es) and {} buffered)...\n",
+                 queued, fylgje::bytes_to_size_string(static_cast<int64_t>(data->buffered_bytes())));
+    }
+    try {
+      // drain queued batches and stop the thread; the EventManager is ours
+      // again afterwards (close_file below writes the tail + histograms)
+      writer->finish();
+    } catch (const std::exception & e) {
+      fmt::print("Writing failed: {}\n", e.what());
+      exit_code = 1;
+    }
+  }
   const auto close_start = std::chrono::steady_clock::now();
-  data->close_file();
+  try {
+    data->close_file();
+  } catch (const std::exception & e) {
+    fmt::print("Failed to finalise the output file: {}\n", e.what());
+    exit_code = 1;
+  }
   if (verbose) {
     const auto close_time = std::chrono::steady_clock::now() - close_start;
-    fmt::print(stderr, "timing: consuming {}, writing {} ({} flushes)\n",
-               duration_string(worker->consume_duration()),
-               duration_string(worker->write_duration() + close_time),
-               worker->flushes() + 1); // + the final write during close
+    const auto write_time = (writer.has_value() ? writer->write_duration()
+                                                : std::chrono::steady_clock::duration{0}) + close_time;
+    const auto flushes = (writer.has_value() ? writer->flushes() : 0) + 1; // + the final write during close
+    auto line = fmt::format("timing: consuming {}, writing {} ({} flushes)",
+                            duration_string(worker->consume_duration()),
+                            duration_string(write_time), flushes);
+    if (writer.has_value() && writer->stall_duration() >= std::chrono::milliseconds{1}) {
+      line += fmt::format(", consumer stalled {}", duration_string(writer->stall_duration()));
+    }
+    fmt::print(stderr, "{}\n", line);
   }
-  return 0;
+  return exit_code;
 }

@@ -85,6 +85,9 @@ namespace bifrost::data {
     void create_in(const hdf5::node::Group & parent) const;
     /// \brief (re)write the pixel data in place; requires create_in was called on the parent
     void write_to(const hdf5::node::Group & parent) const;
+    /// \brief as write_to, but from a caller-provided snapshot of the counts
+    ///        (for writing from another thread while add() keeps accumulating)
+    void write_to(const hdf5::node::Group & parent, const data_t & snapshot) const;
   private:
     ///\brief Calculate the group number from the arc and triplet numbers
     ///\param arc The arc number

@@ -13,6 +13,7 @@ add_executable(fylgje_mock_tests
         fylgje/SyntheticData.cpp
         fylgje/SyntheticData.h
         fylgje/MockKafkaCluster.h
+        fylgje/TestAsyncWriter.cpp
         fylgje/TestBytes.cpp
         fylgje/TestConsumerMockCluster.cpp
         fylgje/TestEventManagerWriter.cpp
@@ -105,3 +106,28 @@ set_tests_properties(fylgje_consumer_interrupt PROPERTIES
         RESOURCE_LOCK "podman-kafka"
 )
 
+# a tiny --write-buffer forces many size-triggered flushes through the
+# background AsyncWriter; every message must still land exactly once
+add_test(
+        NAME fylgje_consumer_buffer_flush
+        COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_fylgje_consumer_integration.py
+        --consumer-exe $<TARGET_FILE:fylgje-cli>
+        --stream-file ${synthetic_stream}
+        --topic itest-buffer
+        --expected-count 300
+        --partitions 3
+        --consumer-arg=--from=2025-12-31T23:59:00Z
+        --consumer-arg=--to=2026-01-01T00:10:00Z
+        --consumer-arg=-e
+        --consumer-arg=--write-buffer=64K
+        --consumer-arg=--write-every=0
+)
+set_tests_properties(fylgje_consumer_buffer_flush PROPERTIES
+        FIXTURES_REQUIRED synthetic_stream
+        LABELS "integration;podman"
+        TIMEOUT 300
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        # one podman Kafka broker at a time, even under ctest -j
+        RESOURCE_LOCK "podman-kafka"
+)

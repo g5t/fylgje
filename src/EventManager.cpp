@@ -164,26 +164,56 @@ void bifrost::data::EventManager::open_file(const std::filesystem::path & file, 
 }
 
 
+std::vector<bifrost::data::EventManager::message_t> bifrost::data::EventManager::take_messages(){
+  std::vector<message_t> taken;
+  taken.swap(messages);
+  return taken;
+}
+
+void bifrost::data::EventManager::write_events(const std::vector<message_t> & batch){
+  if (!out_file.has_value()){
+    throw std::runtime_error("No file open for incremental writing");
+  }
+  if (!store_events || !out_messages.has_value() || batch.empty()){
+    return;
+  }
+  const auto total = messages_written + batch.size();
+  out_messages->resize({total});
+  const hdf5::dataspace::Hyperslab slab({messages_written}, {batch.size()});
+  out_messages->write(batch, slab);
+  messages_written = total;
+}
+
+void bifrost::data::EventManager::write_pixels(const PixelManager::data_t & snapshot){
+  if (!out_file.has_value()){
+    throw std::runtime_error("No file open for incremental writing");
+  }
+  if (store_pixels && !snapshot.empty()){
+    pixel_manager.write_to(*out_group, snapshot);
+  }
+}
+
+void bifrost::data::EventManager::file_flush(){
+  if (!out_file.has_value()){
+    throw std::runtime_error("No file open for incremental writing");
+  }
+  out_file->flush(hdf5::file::Scope::Global);
+}
+
 void bifrost::data::EventManager::flush(){
   if (!out_file.has_value()){
     throw std::runtime_error("No file open for incremental writing");
   }
-  if (store_events && out_messages.has_value() && !messages.empty()){
-    const auto total = messages_written + messages.size();
-    out_messages->resize({total});
-    const hdf5::dataspace::Hyperslab slab({messages_written}, {messages.size()});
-    out_messages->write(messages, slab);
-    messages_written = total;
-    // appended to file: drop from memory (capacity is retained)
-    messages.clear();
-  }
+  write_events(messages);
+  // appended to file: drop from memory (capacity is retained)
+  messages.clear();
   if (histogram_manager.has_value()){
     histogram_manager->write_to(*out_group);
   }
   if (store_pixels){
     pixel_manager.write_to(*out_group);
   }
-  out_file->flush(hdf5::file::Scope::Global);
+  file_flush();
 }
 
 

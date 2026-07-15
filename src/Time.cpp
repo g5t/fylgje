@@ -18,6 +18,10 @@ std::time_t kafka::time::now_to_time_t() {
   return std::time(nullptr);
 }
 
+milliseconds kafka::time::now_milliseconds() {
+  return std::chrono::duration_cast<milliseconds>(std::chrono::system_clock::now().time_since_epoch());
+}
+
 std::time_t kafka::time::string_to_time_t(const std::string & time_str) {
   struct std::tm tm{};
   std::istringstream ss(time_str);

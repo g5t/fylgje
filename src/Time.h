@@ -16,6 +16,9 @@ namespace kafka::time {
 
   using milliseconds = std::chrono::duration<int64_t, std::milli>;
 
+  /// \brief current wall-clock time, same clock domain as Kafka message timestamps
+  milliseconds now_milliseconds();
+
   milliseconds time_t_to_milliseconds(std::time_t time);
   milliseconds time_string_to_milliseconds(const std::string & time_str);
   milliseconds duration_string_to_milliseconds(const std::string & duration_str);

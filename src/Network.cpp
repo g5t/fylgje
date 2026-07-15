@@ -69,11 +69,11 @@ RdKafka::KafkaConsumer * ess::network::subscribe_topic(
 }
 
 void ess::network::PartitionWindow::reset(RdKafka::KafkaConsumer * consumer) {
-  done_.clear();
+  states_.clear();
   std::vector<RdKafka::TopicPartition*> tps;
   consumer->assignment(tps);
   for (const auto tp: tps) {
-    done_[tp->partition()] = false;
+    states_[tp->partition()] = {};
   }
   RdKafka::TopicPartition::destroy(tps);
 }
@@ -263,6 +263,7 @@ std::tuple<Status, uint32_t> ess::network::handle_message(
         // straggler from a partition already past the window end
         return {Continue, 0};
       }
+      window.clear_eof(partition); // new data: no longer caught up
       if (const auto message_timestamp = message->timestamp().timestamp; late >= 0 && message_timestamp >= late) {
         // this partition has passed the window end; others may not have.
         // pause it so we stop fetching its (out-of-window) tail
@@ -286,6 +287,12 @@ std::tuple<Status, uint32_t> ess::network::handle_message(
     case RdKafka::ERR__PARTITION_EOF: {
       if (late < 0) {
         // live mode: the partition may receive more data, keep polling
+        return {Continue, 0};
+      }
+      if (kafka::time::now_milliseconds().count() < late) {
+        // the window is still open: this partition is caught up for now, but
+        // in-window messages may yet arrive -- keep polling
+        window.mark_eof(message->partition());
         return {Continue, 0};
       }
       window.mark_done(message->partition());

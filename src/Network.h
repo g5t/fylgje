@@ -105,26 +105,41 @@ namespace ess::network {
   } __attribute__((packed));
 
 
-/// \brief Tracks which assigned partitions have finished (reached EOF or the
-///        end of the requested time window) so consumption halts only when
-///        every partition is done, not on the first EOF/late message.
+/// \brief Tracks which assigned partitions have finished (passed the end of
+///        the requested time window) so consumption halts only when every
+///        partition is done, not on the first EOF/late message.
+///
+/// A partition at EOF is only *caught up*, not necessarily finished: when the
+/// window end lies in the future, more in-window messages may still arrive, so
+/// EOF is recorded separately and promoted to done once the window has closed.
   class PartitionWindow {
   public:
     /// \brief (Re)build the tracked set from the consumer's current assignment
     void reset(RdKafka::KafkaConsumer * consumer);
-    void mark_done(int32_t partition) { done_[partition] = true; }
+    void mark_done(int32_t partition) { states_[partition].done = true; }
+    void mark_eof(int32_t partition) { states_[partition].at_eof = true; }
+    void clear_eof(int32_t partition) { states_[partition].at_eof = false; }
+    /// \brief promote caught-up partitions to done; call once the window has
+    ///        closed (any message yet to come is timestamped past the end)
+    void finish_eof_partitions() {
+      for (auto & [partition, state]: states_) if (state.at_eof) state.done = true;
+    }
     [[nodiscard]] bool is_done(int32_t partition) const {
-      const auto it = done_.find(partition);
-      return it != done_.end() && it->second;
+      const auto it = states_.find(partition);
+      return it != states_.end() && it->second.done;
     }
     /// \return true only when partitions are tracked and all are finished
     [[nodiscard]] bool all_done() const {
-      if (done_.empty()) return false;
-      for (const auto & [partition, done]: done_) if (!done) return false;
+      if (states_.empty()) return false;
+      for (const auto & [partition, state]: states_) if (!state.done) return false;
       return true;
     }
   private:
-    std::map<int32_t, bool> done_;
+    struct State {
+      bool done{false};
+      bool at_eof{false};
+    };
+    std::map<int32_t, State> states_;
   };
 
 /// \brief setup librdkafka parameters for Broker and Topic

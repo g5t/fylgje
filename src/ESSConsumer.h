@@ -106,8 +106,10 @@ public:
     window.reset(mConsumer);
   }
 
-  /// \brief bound on how long a finite-window run() may go without any
-  ///        message or EOF before giving up (safety net; EOF is the normal exit)
+  /// \brief bound on how long run() may go without any message or EOF once
+  ///        the requested window has closed, before giving up (safety net;
+  ///        all-partitions-done is the normal exit). While the window end
+  ///        lies in the future the consumer waits indefinitely for new data.
   void setMaximumIdle(std::chrono::milliseconds ms) { maximum_idle = ms; }
 
   void run(){
@@ -123,9 +125,17 @@ public:
       }
       delete Msg;
       intent = status;
-      if (intent != Status::Halt && latest_timestamp >= 0 && clock_t::now() - last_activity > maximum_idle) {
-        fmt::print("No messages or partition EOFs for {} ms; stopping\n", maximum_idle.count());
-        intent = Status::Halt;
+      if (intent != Status::Halt && latest_timestamp >= 0
+          && kafka::time::now_milliseconds().count() >= latest_timestamp) {
+        // the window has closed: partitions that are caught up cannot receive
+        // in-window data any more, and EOF is not re-emitted while idle
+        window.finish_eof_partitions();
+        if (window.all_done()) {
+          intent = Status::Halt;
+        } else if (clock_t::now() - last_activity > maximum_idle) {
+          fmt::print("No messages or partition EOFs for {} ms after the window closed; stopping\n", maximum_idle.count());
+          intent = Status::Halt;
+        }
       }
     }
     fmt::print("Processed {} AR51 messages ({} bad) and {} CAEN readouts ({} bad)\n", total_ar51, bad_message_count, good_readout_count, bad_readout_count);

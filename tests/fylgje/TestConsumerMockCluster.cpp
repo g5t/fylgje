@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 #include <chrono>
 #include <memory>
+#include <thread>
 #include <gtest/gtest.h>
 #include <librdkafka/rdkafkacpp.h>
 
@@ -165,6 +166,66 @@ TEST_F(ConsumerMockClusterTest, EmptyWindowAfterData) {
   EXPECT_EQ(messages, 0);
   EXPECT_EQ(readouts, 0);
   EXPECT_LT(seconds, 30.0);
+}
+
+/// A window end in the future keeps the consumer alive until wall-clock
+/// reaches it, even though every partition hits EOF within the first second
+TEST_F(ConsumerMockClusterTest, FutureWindowWaitsForClose) {
+  SyntheticStream live = stream;
+  live.t0_ms = kafka::time::now_milliseconds().count();
+  live.dt_ms = 100; // all messages well inside the window
+  const auto live_topic = "synthetic-ar51-future";
+  cluster.create_topic(live_topic, live.n_partitions);
+  produce_stream(cluster.bootstraps(), live_topic, live.messages());
+  config.Kafka.Topic = live_topic;
+
+  const auto [messages, readouts, seconds] = run_window(live.t0_ms - 1'000, live.t0_ms + 6'000);
+  EXPECT_EQ(messages, live.n_messages);
+  EXPECT_EQ(readouts, static_cast<int64_t>(live.n_messages) * live.readouts_per_message);
+  // caught up almost immediately, but must have waited for the window to close
+  EXPECT_GT(seconds, 4.5);
+  EXPECT_LT(seconds, 20.0);
+}
+
+/// Messages produced while a future-window consumer is already caught up
+/// (post-EOF) are still collected
+TEST_F(ConsumerMockClusterTest, FutureWindowPicksUpLiveMessages) {
+  SyntheticStream batch_a = stream;
+  batch_a.t0_ms = kafka::time::now_milliseconds().count();
+  batch_a.dt_ms = 100;
+  const auto live_topic = "synthetic-ar51-live";
+  cluster.create_topic(live_topic, batch_a.n_partitions);
+  produce_stream(cluster.bootstraps(), live_topic, batch_a.messages());
+  config.Kafka.Topic = live_topic;
+
+  const auto from = batch_a.t0_ms - 1'000;
+  const auto to = batch_a.t0_ms + 8'000;
+  const auto sink = std::make_shared<CountingSink>();
+  int64_t messages{-1}, readouts{-1};
+  const auto start = std::chrono::steady_clock::now();
+  std::thread consumer_thread([&] {
+    ESSConsumer<CountingSink> consumer{sink, config,
+                                       kafka::time::milliseconds{from},
+                                       kafka::time::milliseconds{to}};
+    consumer.setMaximumIdle(std::chrono::milliseconds{5'000});
+    consumer.run();
+    messages = consumer.message_count();
+    readouts = consumer.event_count();
+  });
+
+  // let the consumer catch up (EOF) before producing the second batch
+  std::this_thread::sleep_for(std::chrono::seconds(2));
+  SyntheticStream batch_b = batch_a;
+  batch_b.t0_ms = kafka::time::now_milliseconds().count();
+  batch_b.n_messages = 15;
+  produce_stream(cluster.bootstraps(), live_topic, batch_b.messages());
+
+  consumer_thread.join();
+  const std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;
+  EXPECT_EQ(messages, batch_a.n_messages + batch_b.n_messages);
+  EXPECT_EQ(readouts, static_cast<int64_t>(batch_a.n_messages + batch_b.n_messages) * batch_a.readouts_per_message);
+  EXPECT_GT(elapsed.count(), 6.5);
+  EXPECT_LT(elapsed.count(), 25.0);
 }
 
 }

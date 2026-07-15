@@ -25,6 +25,7 @@ set(${core_target}_src
   Network.cpp
   PixelManager.cpp
   Time.cpp
+  Verbosity.cpp
 )
 
 set(${core_target}_inc
@@ -41,6 +42,7 @@ set(${core_target}_inc
   Network.h
   PixelManager.h
   Time.h
+  Verbosity.h
   Version.h
 )
 

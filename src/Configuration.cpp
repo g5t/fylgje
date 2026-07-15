@@ -6,6 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Configuration.h"
+#include "Verbosity.h"
 #include <fmt/format.h>
 
 void Configuration::fromJsonFile(std::string fname) {
@@ -23,7 +24,9 @@ void Configuration::fromJsonFile(std::string fname) {
   getInstrumentConfig();
   getKafkaConfig();
   getPlotConfig();
-  print();
+  if (fylgje::log::debug()) {
+    print();
+  }
 }
 
 void Configuration::getInstrumentConfig() {
@@ -94,13 +97,14 @@ T Configuration::getVal(std::string Group, std::string Option, T Default, bool T
   try {
     ConfigVal = JsonObj[Group][Option];
   } catch (nlohmann::json::exception &e) {
-    fmt::print("Missing [{}][{}] configuration\n", Group, Option);
     if (Throw) {
+      fmt::print("Missing [{}][{}] configuration\n", Group, Option);
       throw std::runtime_error("Daqlite config error");
-    } else {
-      fmt::print("Using default: {}\n", Default);
-      return Default;
     }
+    if (fylgje::log::debug()) {
+      fmt::print("Missing [{}][{}] configuration; using default: {}\n", Group, Option, Default);
+    }
+    return Default;
   }
   return ConfigVal;
 }

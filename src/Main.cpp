@@ -16,6 +16,7 @@
 #include "Configuration.h"
 #include "Calibration.h"
 #include "Time.h"
+#include "Verbosity.h"
 #include "Version.h"
 
 void print_licenses(const std::string & which){
@@ -89,7 +90,10 @@ int main(int argc, char *argv[]){
         "Background from Wikipedia on fylgje: https://en.wikipedia.org/wiki/Fylgja");
 
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::Flag verbose(parser, "verbose", "CLI mode: live progress line and end-of-run timing summary, printed to stderr.", {'v', "verbose"});
+    args::CounterFlag verbose(parser, "verbose",
+        "Increase verbosity, repeatable: -v adds a live progress line and end-of-run timing summary"
+        " (CLI mode, printed to stderr); -vv also prints Kafka and configuration debug information.",
+        {'v', "verbose"});
     args::Flag version_flag(parser, "version", "Print the fylgje version and exit", {'V', "version"});
 
     auto now = std::time({});
@@ -138,6 +142,9 @@ int main(int argc, char *argv[]){
       return 1;
     }
 
+    // before any configuration loading, whose debug output it gates
+    fylgje::log::set_verbosity(args::get(verbose));
+
     if (version_flag) {
       std::cout << fmt::format("{} {}\n", fylgje::creator, fylgje::version);
       return 0;
@@ -157,13 +164,17 @@ int main(int argc, char *argv[]){
     if (broker_flag){
       if (auto broker = args::get(broker_flag); !broker.empty()) {
         Config.Kafka.Broker = broker;
-        std::cout << fmt::format("<<<<\n WARNING Override kafka broker to {} \n>>>>\n", Config.Kafka.Broker);
+        if (fylgje::log::debug()) {
+          std::cout << fmt::format("Kafka broker overridden to {}\n", Config.Kafka.Broker);
+        }
       }
     }
     if (topic_flag){
       if (auto topic = args::get(topic_flag); !topic.empty()) {
         Config.Kafka.Topic = topic;
-        std::cout << fmt::format("<<<<\n WARNING Override kafka topic to {} \n>>>>\n", Config.Kafka.Topic);
+        if (fylgje::log::debug()) {
+          std::cout << fmt::format("Kafka topic overridden to {}\n", Config.Kafka.Topic);
+        }
       }
     }
     if (config_flag){
@@ -214,7 +225,8 @@ int main(int argc, char *argv[]){
     auto write_buffer = fylgje::size_string_to_bytes(args::get(buffer_flag));
 
     return fylgje_app(Config, calibration, from_time, to_time, output_file, gui,
-                      events_flag, pixels_flag, histograms_flag, write_every, verbose, write_buffer);
+                      events_flag, pixels_flag, histograms_flag, write_every,
+                      args::get(verbose) >= 1, write_buffer);
 }
 
 

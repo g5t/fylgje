@@ -6,6 +6,7 @@
 /// \brief Network data structures for the ESS readout system and interface details for Kafka service
 //===----------------------------------------------------------------------===//
 #include "Network.h"
+#include "Verbosity.h"
 #include <algorithm>
 #include <fmt/format.h>
 #include <iostream>
@@ -131,15 +132,17 @@ static void set_topic_partition_offset(
     }
   }
 
-  std::stringstream ss;
-  ss << "Offsets for " << configuration.Kafka.Topic << " (partition: [min, offset, max]) are [\n";
-  for (const auto tp: tps){
-    const auto &[low, high] = low_high.at(tp->partition());
-    ss << "  " << tp->partition() << ": [" << low << ", " << tp->offset() << ", " << high << "],\n";
+  if (fylgje::log::debug()) {
+    std::stringstream ss;
+    ss << "Offsets for " << configuration.Kafka.Topic << " (partition: [min, offset, max]) are [\n";
+    for (const auto tp: tps){
+      const auto &[low, high] = low_high.at(tp->partition());
+      ss << "  " << tp->partition() << ": [" << low << ", " << tp->offset() << ", " << high << "],\n";
+    }
+    if (!tps.empty()) ss.seekp(-2, ss.cur);
+    ss << "\n]\n";
+    fmt::print(ss.str());
   }
-  if (!tps.empty()) ss.seekp(-2, ss.cur);
-  ss << "\n]\n";
-  fmt::print(ss.str());
 }
 
 
@@ -162,17 +165,26 @@ void ess::network::set_consumer_offset(
     fmt::print("metadata_ptr still NULL\n");
   } else {
     const auto topic_metadata = metadata_ptr->topics();
-    fmt::print("Got metadata about on {} topics\n", topic_metadata->size());
+    const auto debug = fylgje::log::debug();
+    if (debug) {
+      fmt::print("Got metadata about on {} topics\n", topic_metadata->size());
+    }
     for (const auto &topic_meta: *topic_metadata) {
       if (topic_meta->topic() == configuration.Kafka.Topic) {
-        fmt::print(" {} has {} partitions [", topic_meta->topic(), topic_meta->partitions()->size());
+        if (debug) {
+          fmt::print(" {} has {} partitions [", topic_meta->topic(), topic_meta->partitions()->size());
+        }
         const auto &partitions_metadata = topic_meta->partitions();
         for (const auto &partition_metadata: *partitions_metadata) {
-          fmt::print(" {},", partition_metadata->id());
+          if (debug) {
+            fmt::print(" {},", partition_metadata->id());
+          }
           // keep track of the partition numbers (in case they're not contiguous)
           partitions.push_back(partition_metadata->id());
         }
-        fmt::print("]\n");
+        if (debug) {
+          fmt::print("]\n");
+        }
       }
     }
     delete metadata_ptr;
@@ -278,7 +290,9 @@ std::tuple<Status, uint32_t> ess::network::handle_message(
         return {Continue, 0};
       }
       if (!RawReadoutMessageBufferHasIdentifier(message->payload())) {
-        fmt::print("Not a ar51 Kafka message!\n");
+        if (fylgje::log::debug()) {
+          fmt::print("Not a ar51 Kafka message!\n");
+        }
         return {Continue, 0};
       }
       auto [count, bad] = process_AR51_data(message, callbacks);
@@ -296,7 +310,9 @@ std::tuple<Status, uint32_t> ess::network::handle_message(
         return {Continue, 0};
       }
       window.mark_done(message->partition());
-      fmt::print("Reached end of partition {}\n", message->partition());
+      if (fylgje::log::debug()) {
+        fmt::print("Reached end of partition {}\n", message->partition());
+      }
       return {window.all_done() ? Halt : Continue, 0};
     }
     default:
@@ -313,11 +329,17 @@ std::tuple<uint32_t, uint32_t> ess::network::process_AR51_data(const RdKafka::Me
   const auto MsgSize = static_cast<int>(RawReadoutMsg->raw_data()->size());
   auto * Header = reinterpret_cast<const struct PacketHeaderV0 *>(RawReadoutMsg->raw_data()->Data());
   if ((Header->CookieAndType & 0xffffff) != 0x535345) {
-    printf("Non-ESS readout (cookie 0x%08x)\n", Header->CookieAndType);
+    // per-message: gated so a stream of foreign packets cannot flood stdout
+    // (still counted in the end-of-run bad-message total)
+    if (fylgje::log::debug()) {
+      printf("Non-ESS readout (cookie 0x%08x)\n", Header->CookieAndType);
+    }
     return {0, 1};
   }
   if (Header->TotalLength !=  MsgSize) {
-    printf("Readout size mismatch\n");
+    if (fylgje::log::debug()) {
+      printf("Readout size mismatch\n");
+    }
     return {0, 1};
   }
   size_t common_header_length{0};
@@ -340,7 +362,9 @@ std::tuple<uint32_t, uint32_t> ess::network::process_AR51_data(const RdKafka::Me
   if (callbacks.find(Type) != callbacks.end()){
     return {callbacks[Type](DataPtr, static_cast<int>(DataLength), &times), 0};
   }
-  fmt::print("Unregistered readout Type {}\n", Type);;
+  if (fylgje::log::debug()) {
+    fmt::print("Unregistered readout Type {}\n", Type);
+  }
   return {0, 1};
 }
 

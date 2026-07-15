@@ -8,6 +8,7 @@
 
 #include "KafkaConfig.h"
 #include "JsonFile.h"
+#include "Verbosity.h"
 #include <algorithm>
 #include <array>
 #include <condition_variable>
@@ -51,7 +52,9 @@ KafkaConfig::KafkaConfig(const std::string & KafkaConfigFile) {
   if (KafkaConfigFile.empty()) {
     return;
   }
-  fmt::print("KAFKA CONFIG FROM FILE\n");
+  if (fylgje::log::debug()) {
+    fmt::print("KAFKA CONFIG FROM FILE\n");
+  }
   nlohmann::json root = from_json_file(KafkaConfigFile);
 
   try {
@@ -61,7 +64,9 @@ KafkaConfig::KafkaConfig(const std::string & KafkaConfigFile) {
       std::map<std::string, std::string> MyMap = Parm;
       for (auto it = MyMap.begin(); it != MyMap.end(); ++it) {
         if (is_producer_only(it->first)) {
-          fmt::print("Ignoring producer-only Kafka property '{}' for this consumer\n", it->first);
+          if (fylgje::log::debug()) {
+            fmt::print("Ignoring producer-only Kafka property '{}' for this consumer\n", it->first);
+          }
           continue;
         }
         std::pair<std::string, std::string> CfgPair{it->first, it->second};

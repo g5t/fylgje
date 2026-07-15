@@ -15,6 +15,7 @@ add_executable(fylgje_mock_tests
         fylgje/MockKafkaCluster.h
         fylgje/TestConsumerMockCluster.cpp
         fylgje/TestEventManagerWriter.cpp
+        fylgje/TestKafkaConfig.cpp
         fylgje/TestTime.cpp
 )
 target_link_libraries(fylgje_mock_tests
@@ -102,3 +103,4 @@ set_tests_properties(fylgje_consumer_interrupt PROPERTIES
         # one podman Kafka broker at a time, even under ctest -j
         RESOURCE_LOCK "podman-kafka"
 )
+

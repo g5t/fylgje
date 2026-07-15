@@ -57,7 +57,7 @@ int bifrost::data::PixelManager::group(int arc, int triplet) const {
 }
 
 
-void bifrost::data::PixelManager::save_to(const hdf5::node::Group & parent) const {
+void bifrost::data::PixelManager::create_in(const hdf5::node::Group & parent) const {
   std::string creator{"fylgje"};
   std::string version{"v0.0.1"};
   std::string instrument{"BIFROST"};
@@ -80,7 +80,7 @@ void bifrost::data::PixelManager::save_to(const hdf5::node::Group & parent) cons
 
   // all datasets are integer valued
   auto datatype = hdf5::datatype::create<int>();
-  // and we know their final size already, so use contiguous layout
+  // the size never changes, so use contiguous layout (rewritten in place)
   hdf5::property::DatasetCreationList datasetCreationList;
   datasetCreationList.layout(hdf5::property::DatasetLayout::Contiguous);
 
@@ -88,7 +88,15 @@ void bifrost::data::PixelManager::save_to(const hdf5::node::Group & parent) cons
   auto dataspace = hdf5::dataspace::Simple(dimensions);
   auto pds = group.create_dataset("data", datatype, dataspace, datasetCreationList);
   pds.attributes.create_from("wrap_order", pixel_order);
-  pds.write(pixel_data);
+}
+
+void bifrost::data::PixelManager::write_to(const hdf5::node::Group & parent) const {
+  parent.get_group("pixels").get_dataset("data").write(pixel_data);
+}
+
+void bifrost::data::PixelManager::save_to(const hdf5::node::Group & parent) const {
+  create_in(parent);
+  write_to(parent);
 }
 
 

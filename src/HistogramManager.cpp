@@ -216,7 +216,7 @@ std::vector<uint64_t> bifrost::data::HistogramManager::type_dimensions(Type type
 }
 
 
-void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & parent) const {
+void bifrost::data::HistogramManager::create_in(const hdf5::node::Group & parent) const {
   std::string creator{"fylgje"};
   std::string version{"v0.0.1"};
   std::string instrument{"BIFROST"};
@@ -233,12 +233,9 @@ void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & parent) 
   std::vector<std::string> data_order{{"arc"}, {"triplets"}, {"type"}};
   group.attributes.create_from("data_order", data_order);
 
-  std::vector<std::pair<std::string, const map_t<data_t>*>> pairs{
-      {{"everything", &everything}, {"included", &included}, {"excluded", &excluded}}
-  };
   // all datasets are integer valued
   auto datatype = hdf5::datatype::create<int>();
-  // and we know their final size already, so use contiguous layout
+  // their sizes never change, so use contiguous layout (rewritten in place)
   hdf5::property::DatasetCreationList datasetCreationList;
   datasetCreationList.layout(hdf5::property::DatasetLayout::Contiguous);
 
@@ -256,11 +253,12 @@ void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & parent) 
     auto d2 = ax2.create_dataset(dn, dtf, ds2, datasetCreationList);
     d1.attributes.create_from("axes", axes_names(t));
     d2.attributes.create_from("axes", axes_names(t));
+    // the axis values are fixed, so write them at creation
     d1.write(axis(t, BIN1D+1));
     d2.write(axis(t, BIN2D+1));
   }
   std::string intensity_unit{"counts"};
-  for (auto & [name, data]: pairs){
+  for (auto & name: {"everything", "included", "excluded"}){
     auto dg = group.create_group(name);
     for (int a = 0; a < arcs; ++a){
       auto arc_name = fmt::format("arc{}", a);
@@ -281,11 +279,35 @@ void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & parent) 
           }
           ds.attributes.create_from("axes", the_axes);
           ds.attributes.create_from("unit", intensity_unit);
+        }
+      }
+    }
+  }
+}
+
+void bifrost::data::HistogramManager::write_to(const hdf5::node::Group & parent) const {
+  auto group = parent.get_group("histograms");
+  std::vector<std::pair<std::string, const map_t<data_t>*>> pairs{
+      {{"everything", &everything}, {"included", &included}, {"excluded", &excluded}}
+  };
+  for (auto & [name, data]: pairs){
+    auto dg = group.get_group(name);
+    for (int a = 0; a < arcs; ++a){
+      auto da = dg.get_group(fmt::format("arc{}", a));
+      for (int t = 0; t < triplets; ++t){
+        auto dt = da.get_group(fmt::format("triplet{}", t));
+        for (auto k: TYPEND){
+          auto ds = dt.get_group(type_dataset_name(k)).get_dataset("signal");
           ds.write(data->at(key(a, t, k)));
         }
       }
     }
   }
+}
+
+void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & parent) const {
+  create_in(parent);
+  write_to(parent);
 }
 
 

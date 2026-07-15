@@ -24,6 +24,11 @@ namespace bifrost::data {
     std::optional<HistogramManager> histogram_manager;
     bool store_pixels{false};
     bool store_events{false};
+    // incremental-writing state (see open_file/flush/close_file)
+    std::optional<hdf5::file::File> out_file;
+    std::optional<hdf5::node::Group> out_group;
+    std::optional<hdf5::node::Dataset> out_messages;
+    size_t messages_written{0};
 
   public:
     EventManager(PixelManager && pixelManager, HistogramManager && histogramManager)
@@ -73,5 +78,18 @@ namespace bifrost::data {
     void save_to(const hdf5::node::Group & group) const;
     void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;
     void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
+
+    // Incremental writing: open_file creates the complete file structure up
+    // front (events dataset chunked and unlimited), flush appends collected
+    // events (clearing them from memory) and rewrites histograms/pixels in
+    // place, close_file flushes and releases the file. With swmr=true the
+    // file is reopened in HDF5 Single-Writer/Multiple-Reader mode after
+    // creation, so other processes can read it (SWMRRead + refresh) while it
+    // is written; this forces the latest HDF5 file format. Not thread-safe:
+    // call add/flush/close_file from one thread.
+    void open_file(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt, bool swmr = false);
+    void flush();
+    void close_file();
+    [[nodiscard]] bool file_is_open() const { return out_file.has_value(); }
   };
 }

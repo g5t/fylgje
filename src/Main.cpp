@@ -88,7 +88,7 @@ int main(int argc, char *argv[]){
         "Background from Wikipedia on fylgje: https://en.wikipedia.org/wiki/Fylgja");
 
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::Flag verbose(parser, "verbose", "Print additional information", {'v', "verbose"});
+    args::Flag verbose(parser, "verbose", "CLI mode: live progress line and end-of-run timing summary, printed to stderr.", {'v', "verbose"});
     args::Flag version_flag(parser, "version", "Print the fylgje version and exit", {'V', "version"});
 
     auto now = std::time({});
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]){
     auto write_every = kafka::time::duration_string_to_milliseconds(args::get(write_flag));
 
     return fylgje_app(Config, calibration, from_time, to_time, output_file, gui,
-                      events_flag, pixels_flag, histograms_flag, write_every);
+                      events_flag, pixels_flag, histograms_flag, write_every, verbose);
 }
 
 

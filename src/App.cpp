@@ -26,7 +26,8 @@ int fylgje_app(
     bool store_events,
     bool store_pixels,
     bool store_histograms,
-    kafka::time::milliseconds write_every
+    kafka::time::milliseconds write_every,
+    bool verbose
 ){
   if (gui){
 #ifdef FYLGJE_GUI
@@ -36,5 +37,5 @@ int fylgje_app(
 #endif
   }
   return fylgje_app_cli(configuration, calibration, from, to, output_file,
-                        store_events, store_pixels, store_histograms, write_every);
+                        store_events, store_pixels, store_histograms, write_every, verbose);
 }

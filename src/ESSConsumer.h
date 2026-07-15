@@ -11,7 +11,9 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <functional>
+#include <optional>
 #include "Configuration.h"
 #include "ar51_readout_data_generated.h"
 #include <librdkafka/rdkafkacpp.h>
@@ -48,6 +50,13 @@ private:
   const std::atomic<bool> * stop_flag{nullptr};
   std::chrono::milliseconds callback_interval{0};
   std::function<void()> periodic_callback;
+  std::chrono::milliseconds progress_interval{0};
+  std::function<void()> progress_callback;
+  std::function<void()> progress_line_break;
+  std::chrono::steady_clock::duration consume_time{0};
+  std::chrono::steady_clock::duration write_time{0};
+  int64_t flush_count{0};
+  std::optional<std::chrono::steady_clock::time_point> last_write_at;
 
   ess::network::CallbacksType callbacks{
     {3, std::bind(&ESSConsumer::parseCAENData, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)},
@@ -130,14 +139,30 @@ public:
     periodic_callback = std::move(callback);
   }
 
+  /// \brief run() invokes the callback whenever the interval has elapsed
+  ///        (checked once per ~1 s poll, which is the effective floor), on
+  ///        run()'s thread; intended for progress reporting. If the callback
+  ///        maintains an unterminated display line (e.g. a '\r'-rewritten
+  ///        progress line), pass a line_break that terminates it: run() calls
+  ///        it before printing any of its own messages.
+  void setProgressCallback(std::chrono::milliseconds interval, std::function<void()> callback,
+                           std::function<void()> line_break = {}) {
+    progress_interval = interval;
+    progress_callback = std::move(callback);
+    progress_line_break = std::move(line_break);
+  }
+
   void run(){
     using clock_t = std::chrono::steady_clock;
     Status intent{Status::Continue};
     auto last_activity = clock_t::now();
     auto last_callback = clock_t::now();
+    auto last_progress = clock_t::now();
     while (intent != Status::Halt) {
+      const auto consume_start = clock_t::now();
       const auto Msg = consume();
       auto [status, ar51s] = ess::network::handle_message(mConsumer, earliest_timestamp, latest_timestamp, Msg, callbacks, window);
+      consume_time += clock_t::now() - consume_start;
       total_ar51 += ar51s;
       if (Msg->err() != RdKafka::ERR__TIMED_OUT) {
         last_activity = clock_t::now();
@@ -145,13 +170,24 @@ public:
       delete Msg;
       intent = status;
       if (intent != Status::Halt && stop_flag != nullptr && stop_flag->load()) {
+        break_progress_line();
         fmt::print("Stop requested; halting consumption\n");
         intent = Status::Halt;
       }
       if (intent != Status::Halt && periodic_callback && callback_interval.count() > 0
           && clock_t::now() - last_callback >= callback_interval) {
+        const auto write_start = clock_t::now();
         periodic_callback();
-        last_callback = clock_t::now();
+        const auto write_end = clock_t::now();
+        write_time += write_end - write_start;
+        ++flush_count;
+        last_write_at = write_end;
+        last_callback = write_end;
+      }
+      if (intent != Status::Halt && progress_callback && progress_interval.count() > 0
+          && clock_t::now() - last_progress >= progress_interval) {
+        progress_callback();
+        last_progress = clock_t::now();
       }
       if (intent != Status::Halt && latest_timestamp >= 0
           && kafka::time::now_milliseconds().count() >= latest_timestamp) {
@@ -161,11 +197,13 @@ public:
         if (window.all_done()) {
           intent = Status::Halt;
         } else if (clock_t::now() - last_activity > maximum_idle) {
+          break_progress_line();
           fmt::print("No messages or partition EOFs for {} ms after the window closed; stopping\n", maximum_idle.count());
           intent = Status::Halt;
         }
       }
     }
+    break_progress_line();
     fmt::print("Processed {} AR51 messages ({} bad) and {} CAEN readouts ({} bad)\n", total_ar51, bad_message_count, good_readout_count, bad_readout_count);
   }
 
@@ -261,7 +299,33 @@ public:
     return good_readout_count;
   }
 
+  /// \brief time run() has spent polling Kafka and handling messages
+  [[nodiscard]] std::chrono::steady_clock::duration consume_duration() const {
+    return consume_time;
+  }
+  /// \brief time run() has spent inside the periodic (write) callback
+  [[nodiscard]] std::chrono::steady_clock::duration write_duration() const {
+    return write_time;
+  }
+  /// \brief number of periodic-callback invocations so far
+  [[nodiscard]] int64_t flushes() const {
+    return flush_count;
+  }
+  /// \brief time since the periodic callback last completed; nullopt before the first
+  [[nodiscard]] std::optional<std::chrono::steady_clock::duration> since_last_write() const {
+    if (!last_write_at.has_value()) {
+      return std::nullopt;
+    }
+    return std::chrono::steady_clock::now() - last_write_at.value();
+  }
+
 private:
+  void break_progress_line() const {
+    if (progress_line_break) {
+      progress_line_break();
+    }
+  }
+
   void setup() {
     kafkaConfig = KafkaConfig(configuration.KafkaConfigFile).CfgParms;
     mConsumer = ess::network::subscribe_topic(configuration, kafkaConfig);

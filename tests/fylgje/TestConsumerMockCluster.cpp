@@ -228,6 +228,48 @@ TEST_F(ConsumerMockClusterTest, FutureWindowPicksUpLiveMessages) {
   EXPECT_LT(elapsed.count(), 25.0);
 }
 
+/// The progress callback fires while consuming, the line-break hook runs
+/// before run() prints its end-of-run summary, and the per-stage timers
+/// (consume vs. periodic-write) accumulate. The window closes in the future
+/// so run() is guaranteed multiple ~1 s poll iterations: with a historical
+/// window every prefetched message can be handled in well under the callback
+/// intervals and the callbacks would only fire by timing luck.
+TEST_F(ConsumerMockClusterTest, ProgressCallbackAndStageTimers) {
+  SyntheticStream live = stream;
+  live.t0_ms = kafka::time::now_milliseconds().count();
+  live.dt_ms = 100; // all messages well inside the window
+  const auto live_topic = "synthetic-ar51-progress";
+  cluster.create_topic(live_topic, live.n_partitions);
+  produce_stream(cluster.bootstraps(), live_topic, live.messages());
+  config.Kafka.Topic = live_topic;
+
+  const auto sink = std::make_shared<CountingSink>();
+  ESSConsumer<CountingSink> consumer{sink, config,
+                                     kafka::time::milliseconds{live.t0_ms - 1'000},
+                                     kafka::time::milliseconds{live.t0_ms + 4'000}};
+  consumer.setMaximumIdle(std::chrono::milliseconds{5'000});
+  int64_t writes{0};
+  consumer.setPeriodicCallback(std::chrono::milliseconds{1}, [&writes] {
+    ++writes;
+    std::this_thread::sleep_for(std::chrono::milliseconds{1}); // make write time measurable
+  });
+  int64_t progress_calls{0}, line_breaks{0};
+  consumer.setProgressCallback(std::chrono::milliseconds{1},
+                               [&progress_calls] { ++progress_calls; },
+                               [&line_breaks] { ++line_breaks; });
+  EXPECT_EQ(consumer.consume_duration().count(), 0);
+  EXPECT_FALSE(consumer.since_last_write().has_value());
+  consumer.run();
+  EXPECT_GE(progress_calls, 1);
+  EXPECT_GE(line_breaks, 1); // at least once, before the end-of-run summary print
+  EXPECT_GT(consumer.consume_duration().count(), 0);
+  EXPECT_GT(consumer.write_duration().count(), 0);
+  EXPECT_GE(consumer.flushes(), 1);
+  EXPECT_EQ(consumer.flushes(), writes);
+  ASSERT_TRUE(consumer.since_last_write().has_value());
+  EXPECT_GE(consumer.since_last_write().value().count(), 0);
+}
+
 /// A live (no end time) consumer halts promptly when its stop flag is raised,
 /// as the CLI's SIGINT handler does, with everything consumed so far intact
 TEST_F(ConsumerMockClusterTest, StopFlagHaltsLiveConsumer) {

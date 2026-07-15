@@ -20,5 +20,6 @@ int fylgje_app(
     bool store_events = false,
     bool store_pixels = false,
     bool store_histograms = false,
-    kafka::time::milliseconds write_every = kafka::time::milliseconds{60'000}
+    kafka::time::milliseconds write_every = kafka::time::milliseconds{60'000},
+    bool verbose = false
 );

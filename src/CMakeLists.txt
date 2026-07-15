@@ -13,6 +13,7 @@ set(gui_target fylgje)
 #=============================================================================
 
 set(${core_target}_src
+  Bytes.cpp
   Calibration.cpp
   Configuration.cpp
   ESSConsumer.cpp
@@ -26,6 +27,7 @@ set(${core_target}_src
 )
 
 set(${core_target}_inc
+  Bytes.h
   Calibration.h
   Configuration.h
   ESSConsumer.h

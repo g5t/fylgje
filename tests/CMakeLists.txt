@@ -13,6 +13,7 @@ add_executable(fylgje_mock_tests
         fylgje/SyntheticData.cpp
         fylgje/SyntheticData.h
         fylgje/MockKafkaCluster.h
+        fylgje/TestBytes.cpp
         fylgje/TestConsumerMockCluster.cpp
         fylgje/TestEventManagerWriter.cpp
         fylgje/TestKafkaConfig.cpp

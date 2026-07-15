@@ -78,7 +78,14 @@ void print_licenses(const std::string & which){
 
 int main(int argc, char *argv[]){
     args::ArgumentParser parser("fylgje - your mythical instrument follower",
-                                "Background from Wikipedia on fylgje: https://en.wikipedia.org/wiki/Fylgja");
+        "Times are UTC: YYYY-MM-DDThh:mm:ssZ, e.g. 2026-07-15T09:30:00Z.\n"
+        "Durations are an integer with a unit: d, h, m, s, ms, us, ns;\n"
+        "a bare number means seconds, e.g. 90m, 30s, 5400.\n"
+        "Examples (TIME as above; add -b HOST:PORT or -f config.json):\n"
+        "fixed window: fylgje-cli -t TOPIC --from TIME --to TIME -e\n"
+        "by duration: fylgje-cli -t TOPIC --from TIME --duration 90m -d\n"
+        "until Ctrl-C: fylgje-cli -t TOPIC --write-every 30s -e -o run42.h5\n"
+        "Background from Wikipedia on fylgje: https://en.wikipedia.org/wiki/Fylgja");
 
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::Flag verbose(parser, "verbose", "Print additional information", {'v', "verbose"});
@@ -90,20 +97,20 @@ int main(int argc, char *argv[]){
     Configuration Config;
     Calibration calibration;
 
-    args::ValueFlag<std::string> file_flag(parser, "file", "JSON configuration <file>.", {'f', "file"});
-    args::ValueFlag<std::string> broker_flag(parser, "broker", "Kafka <broker> url.", {'b', "broker"});
-    args::ValueFlag<std::string> topic_flag(parser, "topic", "Kafka <topic>.", {'t', "topic"});
-    args::ValueFlag<std::string> config_flag(parser, "config", "Kafka <configuration> file.", {'k', "config"});
-    args::ValueFlag<std::string> calibration_flag(parser, "calibration", "Detector calibration JSON file", {'c', "calibration"});
-    args::ValueFlag<std::string> output_flag(parser, "output", "Output file", {'o', "output"});
-    args::ValueFlag<std::string> from_flag(parser, "from", "Start time for accumulation", {"from"}, timeString);
-    args::ValueFlag<std::string> to_flag(parser, "to", "End time for accumulation", {"to"}, timeString);
-    args::ValueFlag<std::string> duration_flag(parser, "duration", "Duration for accumulation", {"duration"}, "1h");
+    args::ValueFlag<std::string> file_flag(parser, "file", "JSON configuration <file> with instrument/Kafka/plot settings.", {'f', "file"});
+    args::ValueFlag<std::string> broker_flag(parser, "broker", "Kafka <broker> as host:port, e.g. localhost:9092.", {'b', "broker"});
+    args::ValueFlag<std::string> topic_flag(parser, "topic", "Kafka <topic> holding ar51 raw readout messages, e.g. bifrost_detector_samples.", {'t', "topic"});
+    args::ValueFlag<std::string> config_flag(parser, "config", "Kafka <configuration> JSON file: {\"KafkaParms\": [{\"<option>\": \"<value>\"}, ...]} entries passed to librdkafka.", {'k', "config"});
+    args::ValueFlag<std::string> calibration_flag(parser, "calibration", "Detector calibration JSON file.", {'c', "calibration"});
+    args::ValueFlag<std::string> output_flag(parser, "output", "Output HDF5 file path; must not already contain a /fylgje group (default: fylgje.h5).", {'o', "output"});
+    args::ValueFlag<std::string> from_flag(parser, "from", "Start time for accumulation, UTC as YYYY-MM-DDThh:mm:ssZ (default: now).", {"from"}, timeString);
+    args::ValueFlag<std::string> to_flag(parser, "to", "End time for accumulation, same format as --from; may lie in the future. CLI mode consumes until interrupted (Ctrl-C stops and saves) when omitted.", {"to"}, timeString);
+    args::ValueFlag<std::string> duration_flag(parser, "duration", "Duration for accumulation, e.g. 90m, 30s, or bare seconds; combines with exactly one of --from/--to.", {"duration"}, "1h");
     args::ValueFlag<std::string> write_flag(parser, "write-every",
         "Periodically write collected data to the output file every <write-every>, e.g. 30s, 5m, or a bare number"
         " of seconds (CLI mode; 0 disables periodic writing). While enabled the file is written in HDF5 SWMR mode,"
         " readable by other processes but requiring HDF5 >= 1.10 tools.", {"write-every"}, "60s");
-    args::ValueFlag<std::string> license_flag(parser, "license", "Print license information", {'l', "license"});
+    args::ValueFlag<std::string> license_flag(parser, "license", "Print license information for <license>: fylgje or args.", {'l', "license"});
     args::Flag events_flag(parser, "events", "Store events in HDF5 file", {'e', "events"});
     args::Flag pixels_flag(parser, "pixels", "Store pixel data in HDF5 file", {'p', "pixels"});
     args::Flag histograms_flag(parser, "histograms", "Store histogram data in HDF5 file", {'d', "histograms"});

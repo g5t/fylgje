@@ -184,7 +184,12 @@ int main(int argc, char *argv[]){
     }
     if (calibration_flag){
       if (auto calib = args::get(calibration_flag); !calib.empty()) {
-        calibration = from_json_file(calib);
+	try {
+	  calibration = from_json_file(calib);
+	} catch (const std::runtime_error& e) {
+	  std::cerr << e.what() << std::endl;
+	  return 1;
+	}
       }
     }
 

@@ -53,6 +53,7 @@ Calibration::Calibration(int group_count, int element_count)
 ///\brief Retrieve the Calibration date-time point as a string
 [[nodiscard]] std::string Calibration::dateString() const {
   char timeString[std::size("yyyy-mm-ddThh:mm:ssZ")];
+  timeString[0] = '\0';
   std::strftime(std::data(timeString), std::size(timeString), "%FT%TZ", std::gmtime(&date_));
   return timeString;
 }

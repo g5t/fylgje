@@ -49,6 +49,7 @@ std::time_t kafka::time::string_to_time_t(const std::string & time_str) {
 
 std::string kafka::time::time_t_to_string(std::time_t time) {
   char timeString[std::size("yyyy-mm-ddThh:mm:ssZ")];
+  timeString[0] = '\0';
   std::strftime(std::data(timeString), std::size(timeString), "%FT%TZ", std::gmtime(&time));
   return timeString;
 }

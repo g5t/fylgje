@@ -26,7 +26,7 @@ std::tuple<double, uint32_t, uint32_t> frame_time(const ess::network::PulseTimes
     return static_cast<double>(high-h) + static_cast<double>(diff) / ticks;
   };
   double time{0.};
-  uint32_t p_hi, p_lo;
+  uint32_t p_hi{0}, p_lo{0};
   if (high > header->PulseHigh || (high == header->PulseHigh && low > header->PulseLow)){
     time =  converter(header->PulseHigh, header->PulseLow);
     p_hi = header->PulseHigh;

@@ -224,7 +224,7 @@ int main(int argc, char *argv[]){
     auto write_every = kafka::time::duration_string_to_milliseconds(args::get(write_flag));
     auto write_buffer = fylgje::size_string_to_bytes(args::get(buffer_flag));
 
-    return fylgje_app(Config, calibration, from_time, to_time, output_file, gui,
+    return fylgjeApp(Config, calibration, from_time, to_time, output_file, gui,
                       events_flag, pixels_flag, histograms_flag, write_every,
                       args::get(verbose) >= 1, write_buffer);
 }

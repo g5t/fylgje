@@ -6,12 +6,14 @@
 /// \brief fylgje interface to handle binning events from AR51 format messages
 //===----------------------------------------------------------------------===//
 #pragma once
-#include <map>
-#include <vector>
-#include <fmt/format.h>
-#include <h5cpp/hdf5.hpp>
 #include "Calibration.h"
 #include "Message.h"
+
+#include <fmt/format.h>
+#include <h5cpp/hdf5.hpp>
+
+#include <map>
+#include <vector>
 
 namespace bifrost::data {
   /// \brief Specify whether the calibration should be used to filter data and how

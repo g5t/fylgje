@@ -33,7 +33,7 @@ extern "C" void fylgje_cli_on_sigint(int) {
   std::signal(SIGINT, SIG_DFL);
 }
 
-int fylgje_app_cli(
+int fylgjeAppCli(
     Configuration & configuration,
     Calibration & calibration,
     kafka::time::milliseconds from,

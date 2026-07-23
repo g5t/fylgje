@@ -5,13 +5,14 @@
 ///
 /// \brief Utilities to help convert times to Kafka's standard: milliseconds since epoch
 //===----------------------------------------------------------------------===//
+#include "Time.h"
+
+#include <fmt/core.h>
+
 #include <cctype>
 #include <iostream>
 #include <iomanip>
 #include <chrono>
-#include <fmt/format.h>
-
-#include "Time.h"
 
 using namespace kafka::time;
 

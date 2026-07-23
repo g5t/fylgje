@@ -8,6 +8,7 @@
 #include <string>
 #include <ctime>
 #include <chrono>
+
 namespace kafka::time {
   std::time_t now_to_time_t();
   std::time_t string_to_time_t(const std::string & time_str);

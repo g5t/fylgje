@@ -16,7 +16,7 @@
 #include "GUI.h"
 #endif
 
-int fylgje_app(
+int fylgjeApp(
     Configuration & configuration,
     Calibration & calibration,
     kafka::time::milliseconds from,
@@ -32,11 +32,11 @@ int fylgje_app(
 ){
   if (gui){
 #ifdef FYLGJE_GUI
-    return fylgje_app_gui(configuration, calibration, from, to, output_file, store_events, store_pixels);
+    return fylgjeAppGui(configuration, calibration, from, to, output_file, store_events, store_pixels);
 #else
     std::cerr << "GUI not available, using CLI instead" << std::endl;
 #endif
   }
-  return fylgje_app_cli(configuration, calibration, from, to, output_file,
+  return fylgjeAppCli(configuration, calibration, from, to, output_file,
                         store_events, store_pixels, store_histograms, write_every, verbose, write_buffer);
 }

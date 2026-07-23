@@ -23,6 +23,8 @@ class PlotManager{
 public:
   using type_t = ::bifrost::data::Type;
   using layout_t = QGridLayout;
+  /// A closed polygon boundary, as (x, y) coordinate pairs
+  using Coordinates = std::vector<std::pair<double, double>>;
   enum class Dim {none, one, two};
 
   /// Callback type for mouse-press and mouse-move events on individual plots
@@ -63,9 +65,9 @@ public:
   /// \brief Plot a 2D histogram
   void plot(int i, int j, QCPColorMapData * data, double min, double max, bool is_log,
             std::string_view gradient, bool is_inverted,
-            const std::optional<std::vector<std::pair<double, double>>> & left,
-            const std::optional<std::vector<std::pair<double, double>>> & center,
-            const std::optional<std::vector<std::pair<double, double>>> & right);
+            const std::optional<Coordinates> & left,
+            const std::optional<Coordinates> & center,
+            const std::optional<Coordinates> & right);
 
   // ── Mouse-interaction hooks ──────────────────────────────────────────────
   void set_click_callback(mouse_cb_t cb)       { click_callback = std::move(cb); }

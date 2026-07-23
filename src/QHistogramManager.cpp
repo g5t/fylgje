@@ -169,7 +169,7 @@ int HistogramManager::max_1D(bifrost::data::key_t k, Filter which) const {
         for (int j=0; j < r; ++j){
           tmp += full.at(i*r + j);
         }
-        tmp = tmp ? tmp/r ? tmp/r : 1 : 0;
+        if (tmp) tmp = tmp/r ? tmp/r : 1;
         if (tmp > value) value = tmp;
       }
     }
@@ -229,7 +229,7 @@ int HistogramManager::min_1D(bifrost::data::key_t k, Filter which) const {
         for (int j=0; j < r; ++j){
           tmp += full.at(i*r + j);
         }
-        tmp = tmp ? tmp/r ? tmp/r : 1 : 0;
+        if (tmp) tmp = tmp/r ? tmp/r : 1;
         if (tmp < value) value = tmp;
       }
     }
@@ -272,7 +272,7 @@ int HistogramManager::min_2D(bifrost::data::key_t k, Filter which) const {
 }
 
 std::pair<int, int> HistogramManager::bins_2D(bifrost::data::Type t) const {
-  Type x{Type::unknown}, y;
+  Type x{Type::unknown}, y{Type::unknown};
   if (Type::ab == t){
     x = Type::a;
     y = Type::b;

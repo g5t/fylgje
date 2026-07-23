@@ -10,7 +10,15 @@
 #include "Calibration.h"
 #include "Time.h"
 
-int fylgje_app(
+/// \brief Run fylgje, either as the Qt GUI or headless on the CLI
+///
+/// Consumes AR51 messages (presently carrying CAEN-format events) from Kafka
+/// between `from` and `to` (or until interrupted, if `to` is unset),
+/// optionally writing events, pixels, and/or histograms to `output_file` as
+/// they accumulate.
+/// \param gui Launch the Qt GUI instead of running headless on the CLI;
+///            unavailable when built without Qt (see `fylgje-cli`)
+int fylgjeApp(
     Configuration & configuration,
     Calibration & calibration,
     kafka::time::milliseconds from,

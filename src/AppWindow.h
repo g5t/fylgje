@@ -79,6 +79,8 @@ public:
   void set_int_xt(){set_int(int_t::xt);}
   void set_int_Pt(){set_int(int_t::pt);}
 
+  /// \brief Set the number of histogram bins for one 1-D or 2-D type and refresh its intensity limits
+  /// \param m the requested bin count (a power of two, at most BIN1D or BIN2D)
   void set_bins_a_1d(const int m){data->histograms().set_bins_1d(int_t::a, m); set_intensity_limits();}
   void set_bins_b_1d(const int m){data->histograms().set_bins_1d(int_t::b, m); set_intensity_limits();}
   void set_bins_p_1d(const int m){data->histograms().set_bins_1d(int_t::p, m); set_intensity_limits();}

@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 #pragma once
 
-int fylgje_app_gui(
+int fylgjeAppGui(
     const Configuration & configuration,
     const Calibration & calibration,
     kafka::time::milliseconds from,

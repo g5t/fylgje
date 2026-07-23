@@ -6,10 +6,11 @@
 /// \brief details needed for fylgje BIFROST to understand AR51 messages
 //===----------------------------------------------------------------------===//
 #pragma once
-#include <map>
-#include <vector>
 #include <fmt/format.h>
 #include <h5cpp/hdf5.hpp>
+
+#include <map>
+#include <vector>
 
 namespace bifrost {
   struct message {

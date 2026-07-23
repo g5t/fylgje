@@ -11,7 +11,7 @@
 #include <QApplication>
 #include "AppWindow.h"
 
-int fylgje_app_gui(
+int fylgjeAppGui(
     const Configuration & configuration,
     const Calibration & calibration,
     const kafka::time::milliseconds from,

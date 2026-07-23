@@ -5,6 +5,7 @@
 //
 /// \brief GUI main window for the Fylgje application
 //===----------------------------------------------------------------------===//
+#include <array>
 #include <iostream>
 #include <sstream>
 #include <fmt/core.h>
@@ -426,12 +427,12 @@ void MainWindow::plot_single(int arc, int triplet, int_t t){
         d = PlotManager::Dim::two;
     }
     plots->make_single(d, t);
-    auto & hists = data->qHistograms();
-    auto key = hists.key(arc, triplet, t);
-    auto is_log = ui->scaleButton->isChecked();
-    auto gradient = ui->colormapComboBox->currentText().toStdString();
-    auto is_inverted = ui->colormapInvertedCheck->isChecked();
-    auto intensity = 1.0 * max.at(key);
+    const auto & hists = data->qHistograms();
+    const auto key = hists.key(arc, triplet, t);
+    const auto is_log = ui->scaleButton->isChecked();
+    const auto gradient = ui->colormapComboBox->currentText().toStdString();
+    const auto is_inverted = ui->colormapInvertedCheck->isChecked();
+    const auto intensity = 1.0 * max.at(key);
     if (PlotManager::Dim::one == d){
       using ::bifrost::data::Filter;
       std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
@@ -453,15 +454,15 @@ void MainWindow::plot_one_type(int arc, int_t t){
       d = PlotManager::Dim::two;
   }
   plots->make_all_same(d, t);
-  auto is_log = ui->scaleButton->isChecked();
+  const auto is_log = ui->scaleButton->isChecked();
   using ::bifrost::data::Filter;
-  auto & hists = data->qHistograms();
+  const auto & hists = data->qHistograms();
   std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
   if (PlotManager::Dim::one == d){
     for (int i=0; i<3; ++i) {
       for (int j=0; j<3; ++j) {
-        auto key = hists.key(arc, i*3+j, t);
-        auto intensity = 1.0 * max.at(key);
+        const auto key = hists.key(arc, i*3+j, t);
+        const auto intensity = 1.0 * max.at(key);
         if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, i*3+j, t, Filter::none);
         if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, i*3+j, t, Filter::positive);
         if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, i*3+j, t, Filter::negative);
@@ -470,11 +471,11 @@ void MainWindow::plot_one_type(int arc, int_t t){
     }
   }
   if (PlotManager::Dim::two == d){
-    auto gradient = ui->colormapComboBox->currentText().toStdString();
-    auto is_inverted = ui->colormapInvertedCheck->isChecked();
+    const auto gradient = ui->colormapComboBox->currentText().toStdString();
+    const auto is_inverted = ui->colormapInvertedCheck->isChecked();
       for (int i=0; i<3; ++i) {
           for (int j=0; j<3; ++j) {
-            auto key = hists.key(arc, i*3+j, t);
+            const auto key = hists.key(arc, i*3+j, t);
             plots->plot(i, j, hists.data_2D(arc, i*3+j, t, plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
           }
       }
@@ -484,23 +485,23 @@ void MainWindow::plot_one_type(int arc, int_t t){
 void MainWindow::plot_one_triplet(int arc, int triplet){
   using ::bifrost::data::Filter;
   plots->make_multi(type_orders());
-  int i[]{0,0,0,1,1,1,2,2,2};
-  int j[]{0,1,2,0,1,2,0,1,2};
-  auto is_log = ui->scaleButton->isChecked();
-  auto & hists = data->qHistograms();
+  static constexpr std::array<int, 9> i{0,0,0,1,1,1,2,2,2};
+  static constexpr std::array<int, 9> j{0,1,2,0,1,2,0,1,2};
+  const auto is_log = ui->scaleButton->isChecked();
+  const auto & hists = data->qHistograms();
   std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
   for (int t: {0, 1, 2, 5, 8}){
-    auto key = hists.key(arc, triplet, type_of_order(t));
-    auto intensity = 1.0 * max[key];
+    const auto key = hists.key(arc, triplet, type_of_order(t));
+    const auto intensity = 1.0 * max[key];
     if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, type_of_order(t), Filter::none);
     if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, triplet, type_of_order(t), Filter::positive);
     if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, triplet, type_of_order(t), Filter::negative);
     plots->plot_all_included_excluded(i[t], j[t], hists.axis(type_of_order(t)), all, included, excluded, 0.0, intensity, is_log);
   }
-  auto gradient = ui->colormapComboBox->currentText().toStdString();
-  auto is_inverted = ui->colormapInvertedCheck->isChecked();
+  const auto gradient = ui->colormapComboBox->currentText().toStdString();
+  const auto is_inverted = ui->colormapInvertedCheck->isChecked();
   for (int t: {3, 4, 6, 7}){
-    auto key = hists.key(arc, triplet, type_of_order(t));
+    const auto key = hists.key(arc, triplet, type_of_order(t));
     plots->plot(i[t], j[t], hists.data_2D(arc, triplet, type_of_order(t), plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
   }
 }
@@ -533,68 +534,68 @@ void MainWindow::autoscale_toggled(bool check)
 }
 
 void MainWindow::set_intensity_limits_triplets(){
-  auto & hists = data->qHistograms();
+  const auto & hists = data->qHistograms();
   for (int triplet=0; triplet<9; ++triplet){
-    auto key = hists.key(_fixed_arc, triplet, _fixed_type);
+    const auto key = hists.key(_fixed_arc, triplet, _fixed_type);
     maxBox[triplet]->setValue(max.at(key));
   }
 }
 
 void MainWindow::get_intensity_limits_triplets(){
-  auto & hists = data->qHistograms();
+  const auto & hists = data->qHistograms();
   for (int triplet=0; triplet<9; ++triplet){
-    auto key = hists.key(_fixed_arc, triplet, _fixed_type);
+    const auto key = hists.key(_fixed_arc, triplet, _fixed_type);
     max[key] = maxBox[triplet]->value();
   }
 }
 
 void MainWindow::auto_intensity_limits_triplets(){
-  auto & hists = data->qHistograms();
+  const auto & hists = data->qHistograms();
   for (int triplet=0; triplet<9; ++triplet){
-    auto key = hists.key(_fixed_arc, triplet, _fixed_type);
+    const auto key = hists.key(_fixed_arc, triplet, _fixed_type);
     max[key] = static_cast<int>(hists.max(key, plot_filter));
   }
 }
 
 void MainWindow::set_intensity_limits_types(){
-  int_t types[]{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
-  auto & hists = data->qHistograms();
+  static constexpr std::array<int_t, 9> types{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
+  const auto & hists = data->qHistograms();
   for (int type=0; type<9; ++type){
-    auto key = hists.key(_fixed_arc, _fixed_triplet, types[type]);
+    const auto key = hists.key(_fixed_arc, _fixed_triplet, types[type]);
     maxBox[type]->setValue(max.at(key));
   }
 }
 
 void MainWindow::get_intensity_limits_types(){
-  int_t types[]{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
-  auto & hists = data->qHistograms();
+  static constexpr std::array<int_t, 9> types{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
+  const auto & hists = data->qHistograms();
   for (int type=0; type<9; ++type){
-    auto key = hists.key(_fixed_arc, _fixed_triplet, types[type]);
+    const auto key = hists.key(_fixed_arc, _fixed_triplet, types[type]);
     max[key] = maxBox[type]->value();
   }
 }
 
 void MainWindow::auto_intensity_limits_types(){
-  int_t types[]{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
-  auto & hists = data->qHistograms();
-  for (auto & type : types){
-    auto key = hists.key(_fixed_arc, _fixed_triplet, type);
+  static constexpr std::array<int_t, 9> types{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
+  const auto & hists = data->qHistograms();
+  for (const auto & type : types){
+    const auto key = hists.key(_fixed_arc, _fixed_triplet, type);
     max[key] = static_cast<int>(hists.max(key, plot_filter));
   }
 }
 
 void MainWindow::set_intensity_limits_singular(){
-  auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
+  const auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
   maxBox[0]->setValue(max.at(key));
 }
 
 void MainWindow::get_intensity_limits_singular(){
-  auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
+  const auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
   max[key] = maxBox[0]->value();
 }
 
 void MainWindow::auto_intensity_limits_singular(){
-  auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
+  const auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
   max[key] = static_cast<int>(data->qHistograms().max(key, plot_filter));
 }
 

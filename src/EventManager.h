@@ -6,13 +6,15 @@
 /// \brief fylgje interface to handle events from AR51 format messages
 //===----------------------------------------------------------------------===//
 #pragma once
-#include <map>
-#include <vector>
-#include <fmt/format.h>
-#include <h5cpp/hdf5.hpp>
+#include "HistogramManager.h"
 #include "Message.h"
 #include "PixelManager.h"
-#include "HistogramManager.h"
+
+#include <fmt/format.h>
+#include <h5cpp/hdf5.hpp>
+
+#include <map>
+#include <vector>
 
 namespace bifrost::data {
   class EventManager {

@@ -137,9 +137,9 @@ void PlotManager::plot_all_included_excluded(const int i, const int j, const std
 
 void PlotManager::plot(const int i, const int j, QCPColorMapData * data, const double min, const double max, const bool is_log,
           const std::string_view gradient, const bool is_inverted,
-          const std::optional<std::vector<std::pair<double, double>>> & left,
-          const std::optional<std::vector<std::pair<double, double>>> & center,
-          const std::optional<std::vector<std::pair<double, double>>> & right){
+          const std::optional<PlotManager::Coordinates> & left,
+          const std::optional<PlotManager::Coordinates> & center,
+          const std::optional<PlotManager::Coordinates> & right){
   const auto k = key(i, j);
   if (!dims.count(k) || dims.at(k) != Dim::two) return;
   if (!images.count(k)) return;
@@ -159,7 +159,7 @@ void PlotManager::plot(const int i, const int j, QCPColorMapData * data, const d
   im->setDataScaleType(is_log ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
   im->setDataRange(QCPRange(min, max));
 
-  auto poly = [](const std::vector<std::pair<double, double>> & v){
+  auto poly = [](const PlotManager::Coordinates & v){
     std::vector<double> x, y;
     x.reserve(v.size()+1);
     y.reserve(v.size()+1);

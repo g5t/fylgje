@@ -124,7 +124,7 @@ namespace ess::network {
     void finish_eof_partitions() {
       for (auto & [partition, state]: states_) if (state.at_eof) state.done = true;
     }
-    [[nodiscard]] bool is_done(int32_t partition) const {
+    [[nodiscard]] bool is_done(const int32_t partition) const {
       const auto it = states_.find(partition);
       return it != states_.end() && it->second.done;
     }
@@ -156,10 +156,14 @@ namespace ess::network {
 
 /// \brief initial checks for kafka error messages
 /// \param consumer needed to pause a partition that has passed the window end
+/// \param early the earliest timestamp to process
+/// \param late the latest timestamp to process
+/// \param message the Kafka message with AR51 message payload
+/// \param callbacks type-mapped callbacks to handle the contents of an AR51 message
 /// \param window per-partition done-state; Halt is returned only when all
 ///        assigned partitions are done (or on a hard error)
 /// \return Update if data is processed, Continue if no data, or Halt if finished or errored
-  std::tuple<Status, uint32_t> handle_message(RdKafka::KafkaConsumer * consumer, int64_t early, int64_t late, RdKafka::Message * message, CallbacksType & callbacks, PartitionWindow & window);
+  std::tuple<Status, uint32_t> handle_message(RdKafka::KafkaConsumer * consumer, int64_t early, int64_t late, const RdKafka::Message * message, CallbacksType & callbacks, PartitionWindow & window);
 
 /// \brief Main processing function for AR51 data
 /// \return number of processed events _in_ the message

@@ -128,24 +128,24 @@ namespace bifrost::data {
     Calibration & calibration;
 
   public:
-    HistogramManager(int arcs, int triplets, Calibration & calib)
+    HistogramManager(const int arcs, const int triplets, Calibration & calib)
         : arcs(arcs), triplets(triplets), calibration(calib)
     {
       // setup data objects ...
-      for (auto data : {&everything, &included, &excluded}) {
+      for (const auto data : {&everything, &included, &excluded}) {
         data->resize(key_count());
         for (int a = 0; a < arcs; ++a) {
           for (int t = 0; t < triplets; ++t) {
-            for (auto k: TYPE1D) data->at(key(a, t, k)).resize(BIN1D, 0);
-            for (auto k: TYPE2D) data->at(key(a, t, k)).resize(BIN2D * BIN2D, 0);
+            for (const auto k: TYPE1D) data->at(key(a, t, k)).resize(BIN1D, 0);
+            for (const auto k: TYPE2D) data->at(key(a, t, k)).resize(BIN2D * BIN2D, 0);
           }
         }
       }
     }
 
     ///\brief Reset all histogram data to zeros
-    void clear(){
-      for (auto data: {&everything, &included, &excluded}) {
+    void clear() {
+      for (const auto data: {&everything, &included, &excluded}) {
         for (auto &d: *data) std::fill(d.begin(), d.end(), 0);
       }
     }
@@ -159,7 +159,7 @@ namespace bifrost::data {
     ///\brief Return the axis values for a given histogram type
     ///\param t the histogram type
     ///\param bins the number of bins to use for the axis, the current display bin count is used if not provided
-    [[nodiscard]] AX axis(Type t, std::optional<int> bins = std::nullopt) const {
+    [[nodiscard]] AX axis(const Type t, std::optional<int> bins = std::nullopt) const {
       if (!bins.has_value()) {
         if (is_1D(t)) {
           if (bins_1d.count(t)) bins = bins_1d.at(t);
@@ -183,12 +183,12 @@ namespace bifrost::data {
     }
 
     ///\brief Set the number of display bins to use for a given 1-D histogram axis type
-    void set_bins_1d(Type t, int m){
+    void set_bins_1d(const Type t, const int m){
       if (m > 0 && m <= BIN1D) bins_1d[t] = m;
     }
 
     ///\brief Set the number of display bins to use for a given 2-D histogram axis type
-    void set_bins_2d(Type t, int m){
+    void set_bins_2d(const Type t, const int m){
       if (m > 0 && m <= BIN2D) bins_2d[t] = m;
     }
 
@@ -206,34 +206,34 @@ namespace bifrost::data {
     }
 
     ///\brief Identify the type of histogram that a data key corresponds to
-    [[nodiscard]] Type key_type(key_t k) const {
+    [[nodiscard]] Type key_type(const key_t k) const {
       return static_cast<Type>(k / (arcs * triplets));
     }
-    ///\brief Identify the triplet number that a data key corresponds to
-    [[nodiscard]] int key_triplet(key_t k) const {
-      return static_cast<int>((k % (arcs * triplets)) / arcs);
-    }
-    ///\brief Identify the arc number that a data key corresponds to
-    [[nodiscard]] int key_arc(key_t k) const {
-      return static_cast<int>(k % arcs);
-    }
+    // ///\brief Identify the triplet number that a data key corresponds to
+    // [[nodiscard]] int key_triplet(const key_t k) const {
+    //   return static_cast<int>((k % (arcs * triplets)) / arcs);
+    // }
+    // ///\brief Identify the arc number that a data key corresponds to
+    // [[nodiscard]] int key_arc(const key_t k) const {
+    //   return static_cast<int>(k % arcs);
+    // }
     ///\brief Identify the number of data keys held by the DataManager
     [[nodiscard]] key_t key_count() const {
-      return TYPECOUNT * arcs * triplets;
+      return static_cast<key_t>(TYPECOUNT) * arcs * triplets;
     }
 
   private:
     bool add_1D(int arc, int triplet, int a, int b, double time, bool allowed);
-    bool add_2D(int arc, int triplet, int a, int b, double time, bool allowed);
+    bool add_2D(int arc, int triplet, int full_a, int full_b, double full_t, bool allowed);
 
   public:
-    [[nodiscard]] std::vector<uint64_t> type_dimensions(Type type) const;
+    static std::vector<uint64_t> type_dimensions(Type type) ;
 
     void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
     void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;
     void save_to(const hdf5::node::Group & group) const;
     /// \brief create the (empty) histograms tree under the parent; the fixed axis values are written too
-    void create_in(const hdf5::node::Group & parent) const;
+    void create_in(const hdf5::node::Group & group) const;
     /// \brief (re)write all histogram signals in place; requires create_in was called on the parent
     void write_to(const hdf5::node::Group & parent) const;
   };

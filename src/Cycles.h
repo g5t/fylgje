@@ -8,6 +8,7 @@
 #pragma once
 
 #include <array>
+#include <stdexcept>
 
 namespace fylgje {
   /// \brief A cyclic iterator over the integer positions in an N-dimensional space
@@ -50,7 +51,7 @@ namespace fylgje {
     }
 
     /// \brief Get the current position along the i-th dimension, with bounds checking and exception throwing
-    int at(int i) {
+    [[nodiscard]] int at(int i) const {
       if (i < 0 || i >= static_cast<int>(N)) {
         throw std::out_of_range("The index is out of range");
       }

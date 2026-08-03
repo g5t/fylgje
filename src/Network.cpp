@@ -191,9 +191,12 @@ void ess::network::set_consumer_offset(
   }
 
   std::vector<RdKafka::TopicPartition*> tps;
-  for (const auto & partition: partitions) {
-    tps.push_back(RdKafka::TopicPartition::create(configuration.Kafka.Topic, partition));
-  }
+  tps.reserve(partitions.size());
+  std::transform(
+    partitions.cbegin(), partitions.cend(), std::back_inserter(tps),
+    [&configuration](const auto& partition) {
+      return RdKafka::TopicPartition::create(configuration.Kafka.Topic, partition);
+  });
   set_topic_partition_offset(configuration, consumer, tps, start, ms_since_utc_epoch);
   consumer->assign(tps); // since consumption hasn't started, we seek by assigning the (topic, partition, offset)
   RdKafka::TopicPartition::destroy(tps); // assign() copies the list
@@ -261,7 +264,7 @@ int64_t ess::network::consume_until(
 std::tuple<Status, uint32_t> ess::network::handle_message(
     RdKafka::KafkaConsumer * consumer,
     const int64_t early, const int64_t late,
-    RdKafka::Message * message,
+    const RdKafka::Message * message,
     CallbacksType & callbacks,
     PartitionWindow & window
 ) {

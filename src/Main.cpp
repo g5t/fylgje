@@ -67,7 +67,7 @@ void print_licenses(const std::string & which){
           " FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS\n"
           " IN THE SOFTWARE.\n"},
   };
-  if (auto it = licenses.find(which); it != licenses.end()){
+  if (const auto it = licenses.find(which); it != licenses.end()){
     std::cout << fmt::format("{}\n", it->second);
   } else {
     std::cerr << fmt::format("No license information for {}. Known licenses for [", which);
@@ -78,7 +78,7 @@ void print_licenses(const std::string & which){
   }
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, const char *argv[]){
     args::ArgumentParser parser("fylgje - your mythical instrument follower",
         "Times are UTC: YYYY-MM-DDThh:mm:ssZ, e.g. 2026-07-15T09:30:00Z.\n"
         "Durations are an integer with a unit: d, h, m, s, ms, us, ns;\n"

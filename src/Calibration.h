@@ -141,7 +141,7 @@ public:
   [[nodiscard]] int version() const {return version_;}
 
   ///\brief Set the version of the calibration schema
-  void setVersion(int v) { version_ = v;}
+  void setVersion(const int v) { version_ = v;}
 
   ///\brief Get the date and time of the calibration
   [[nodiscard]] std::time_t date() const {return date_;}
@@ -150,7 +150,7 @@ public:
   void setDate() { date_ = std::time({});}
 
   ///\brief Set the date and time of the calibration
-  [[maybe_unused]] void setDate(std::time_t t) { date_ = t;}
+  [[maybe_unused]] void setDate(const std::time_t t) { date_ = t;}
 
   ///\brief Get the date and time of the calibration as a string
   [[nodiscard]] std::string dateString() const;
@@ -195,7 +195,7 @@ public:
   ///\note The returned pointer lifetime must not exceed the lifetime of the Calibration object
   ///      to avoid memory access errors. It is used in the GUI to update the calibration values
   ///      when a user enters new values into a table.
-  [[nodiscard]] CalibrationUnit * unitPointer(int group, int unit) {
+  [[nodiscard]] CalibrationUnit * unitPointer(const int group, const int unit) {
     return &(groups_[group].elements[unit]);
   }
 
@@ -225,25 +225,25 @@ private:
 ///\param group_in the CalibrationGroup object to serialize
 ///\note The name of this function is set by the nlohmann::json library
 ///      https://json.nlohmann.me/api/adl_serializer/to_json/
-[[maybe_unused]] void to_json(nlohmann::json &, const CalibrationGroup &);
+[[maybe_unused]] void to_json(nlohmann::json & json_out, const CalibrationGroup & group_in);
 
 ///\brief CalibrationGroup JSON deserialization
 ///\param json_in the json object to deserialize from
 ///\param group_out the CalibrationGroup object to deserialize into
 ///\note The name of this function is set by the nlohmann::json library
 ///      https://json.nlohmann.me/api/adl_serializer/from_json/
-[[maybe_unused]] void from_json(const nlohmann::json &, CalibrationGroup &);
+[[maybe_unused]] void from_json(const nlohmann::json & json_in, CalibrationGroup & group_out);
 
 ///\brief Calibration JSON serialization
 ///\param json_out the json object to serialize to
 ///\param calibration_in the Calibration object to serialize
 ///\note The name of this function is set by the nlohmann::json library
 ///      https://json.nlohmann.me/api/adl_serializer/to_json/
-[[maybe_unused]] void to_json(nlohmann::json &, const Calibration &);
+[[maybe_unused]] void to_json(nlohmann::json & json_out, const Calibration & calibration_in);
 
 ///\brief Calibration JSON deserialization
 ///\param json_in the json object to deserialize from
 ///\param calibration_out the Calibration object to deserialize into
 ///\note The name of this function is set by the nlohmann::json library
 ///      https://json.nlohmann.me/api/adl_serializer/from_json/
-[[maybe_unused]] void from_json(const nlohmann::json &, Calibration &);
+[[maybe_unused]] void from_json(const nlohmann::json & json_in, Calibration & calibration_out);

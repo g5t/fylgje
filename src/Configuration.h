@@ -21,8 +21,8 @@ public:
   /// always be followed by a call to fromJsonFile()
   Configuration(){};
 
-  /// \brief loads configuration from json file
-  void fromJsonFile(std::string fname);
+  /// \brief loads configuration from JSON file
+  void fromJsonFile(const std::string &fname);
 
   // get the Instrument information from the config JSON
   void getInstrumentConfig();
@@ -42,11 +42,11 @@ public:
   /// \brief prints the settings
   void print();
 
-  /// \brief return value of type T from the json object, possibly default,
+  /// \brief return value of type T from the JSON object, possibly default,
   // and optionally throws if value is not found
   template <typename T>
   T getVal(std::string Group, std::string Option, T Default,
-           bool Throw = false);
+           bool Throw = false) const;
 
   // Configurable options
   struct Instrument {

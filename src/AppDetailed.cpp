@@ -23,7 +23,7 @@ void MainWindow::setup_detailed_interactions() {
   });
 
   // Hover tooltip
-  plots->set_hover_callback([this](int i, int j, QMouseEvent * ev){
+  plots->set_hover_callback([this](int i, int j, const QMouseEvent * ev){
     on_plot_hovered(i, j, ev);
   });
 
@@ -49,7 +49,7 @@ void MainWindow::on_plot_clicked(int i, int j, QMouseEvent * event) {
       if (pt == PlotType::Triplets) {
         // 9-triplets → single: remember source, fix the clicked triplet
         _previous_plot_type = PlotType::Triplets;
-        int triplet = i * 3 + j;
+        const int triplet = i * 3 + j;
         {QSignalBlocker b(ui->tripletBox); ui->tripletBox->setChecked(true);}
         _fixed_triplet = triplet;
         set_triplet_radio(triplet);
@@ -58,7 +58,7 @@ void MainWindow::on_plot_clicked(int i, int j, QMouseEvent * event) {
       } else if (pt == PlotType::Types) {
         // 9-types → single: remember source, fix the clicked type
         _previous_plot_type = PlotType::Types;
-        auto t = type_of_order(i * 3 + j);
+        const auto t = type_of_order(i * 3 + j);
         {QSignalBlocker b(ui->intTypeBox); ui->intTypeBox->setChecked(true);}
         _fixed_type = t;
         set_type_radio(t);
@@ -80,7 +80,7 @@ void MainWindow::on_plot_clicked(int i, int j, QMouseEvent * event) {
       if (pt == PlotType::Triplets) {
         // 9-triplets → switch to 9-types for the clicked triplet
         _previous_plot_type = PlotType::Types;
-        int triplet = i * 3 + j;
+        const int triplet = i * 3 + j;
         {QSignalBlocker b(ui->tripletBox); ui->tripletBox->setChecked(true);}
         {QSignalBlocker b(ui->intTypeBox); ui->intTypeBox->setChecked(false);}
         _fixed_triplet = triplet;
@@ -90,7 +90,7 @@ void MainWindow::on_plot_clicked(int i, int j, QMouseEvent * event) {
       } else if (pt == PlotType::Types) {
         // 9-types → switch to 9-triplets for the clicked type
         _previous_plot_type = PlotType::Triplets;
-        auto t = type_of_order(i * 3 + j);
+        const auto t = type_of_order(i * 3 + j);
         {QSignalBlocker b(ui->intTypeBox); ui->intTypeBox->setChecked(true);}
         {QSignalBlocker b(ui->tripletBox); ui->tripletBox->setChecked(false);}
         _fixed_type = t;
@@ -117,37 +117,37 @@ void MainWindow::on_plot_clicked(int i, int j, QMouseEvent * event) {
 
 // ── Hover tooltip ─────────────────────────────────────────────────────────────
 
-void MainWindow::on_plot_hovered(int i, int j, QMouseEvent * event) {
+void MainWindow::on_plot_hovered(const int i, const int j, const QMouseEvent * event) const {
   auto * p = plots->plot_at(i, j);
   if (!p) return;
 
-  auto d = plots->dim(i, j);
+  const auto d = plots->dim(i, j);
   if (d == PlotManager::Dim::none) return;
 
-  auto t    = plots->type_at(i, j);
-  bool flip = plots->is_flipped(i, j);
-  auto names = ::bifrost::data::axes_names(t);
+  const auto t    = plots->type_at(i, j);
+  const bool flip = plots->is_flipped(i, j);
+  const auto names = ::bifrost::data::axes_names(t);
 
-  double xc = p->xAxis->pixelToCoord(event->position().x());
-  double yc = p->yAxis->pixelToCoord(event->position().y());
+  const double xc = p->xAxis->pixelToCoord(event->position().x());
+  const double yc = p->yAxis->pixelToCoord(event->position().y());
 
   if (d == PlotManager::Dim::one) {
     // For flipped plots, the variable axis is yAxis
-    double var_val = flip ? yc : xc;
-    double cnt_val = flip ? xc : yc;
-    QString var_name = names.empty() ? "bin" : QString::fromStdString(names[0]);
+    const double var_val = flip ? yc : xc;
+    const double cnt_val = flip ? xc : yc;
+    const QString var_name = names.empty() ? "bin" : QString::fromStdString(names[0]);
     p->setToolTip(QString("%1: %2  Count: %3")
       .arg(var_name)
       .arg(var_val, 0, 'g', 4)
       .arg(cnt_val, 0, 'f', 0));
   } else if (d == PlotManager::Dim::two) {
-    auto * img = plots->image_at(i, j);
-    double count = img ? img->data()->data(xc, yc) : 0.0;
+    const auto * img = plots->image_at(i, j);
+    const double count = img ? img->data()->data(xc, yc) : 0.0;
     // For flipped 2D, colormap key=yAxis, value=xAxis
-    double kv = flip ? yc : xc;
-    double vv = flip ? xc : yc;
-    QString kn = names.size() > 0 ? QString::fromStdString(names[0]) : "x";
-    QString vn = names.size() > 1 ? QString::fromStdString(names[1]) : "y";
+    const double kv = flip ? yc : xc;
+    const double vv = flip ? xc : yc;
+    const QString kn = !names.empty() ? QString::fromStdString(names[0]) : "x";
+    const QString vn = names.size() > 1 ? QString::fromStdString(names[1]) : "y";
     p->setToolTip(QString("%1: %2  %3: %4  Count: %5")
       .arg(kn).arg(kv, 0, 'g', 4)
       .arg(vn).arg(vv, 0, 'g', 4)

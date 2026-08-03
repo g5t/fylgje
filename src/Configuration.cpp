@@ -9,7 +9,7 @@
 #include "Verbosity.h"
 #include <fmt/format.h>
 
-void Configuration::fromJsonFile(std::string fname) {
+void Configuration::fromJsonFile(const std::string &fname) {
   std::ifstream ifs(fname, std::ofstream::in);
   if (!ifs.good()) {
     throw(std::runtime_error("Unable to create ifstream (bad filename?), exiting ..."));
@@ -92,7 +92,7 @@ void Configuration::print() {
 //\brief getVal() template is used to effectively achieve
 // getInt(), getString() and getBool() functionality through T
 template <typename T>
-T Configuration::getVal(std::string Group, std::string Option, T Default, bool Throw) {
+T Configuration::getVal(std::string Group, std::string Option, T Default, const bool Throw) const {
   T ConfigVal;
   try {
     ConfigVal = JsonObj[Group][Option];

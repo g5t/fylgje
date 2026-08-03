@@ -41,8 +41,8 @@ class MainWindow : public QMainWindow
   enum class PlotType {Unknown, Types, Triplets, Singular};
 public:
   MainWindow(
-      const Configuration & Config,
-      const Calibration & calibration,
+      Configuration  Config,
+      Calibration  calibration,
       kafka::time::milliseconds start,
       std::optional<kafka::time::milliseconds> end,
       const std::optional<std::string> & output,
@@ -115,19 +115,19 @@ private:
 
   void setup_detailed_interactions();
   void on_plot_clicked(int i, int j, QMouseEvent * event);
-  void on_plot_hovered(int i, int j, QMouseEvent * event);
+  void on_plot_hovered(int i, int j, const QMouseEvent * event) const;
 
   void set_arc(int n, bool plot_now=true);
   void set_triplet(int n, bool plot_now=true);
   void set_int(int_t t, bool plot_now=true);
 
-  PlotType selected_plot_type();
+  PlotType selected_plot_type() const;
   // ensure there is only 1 full-size canvas, draw the fully specified plot
-  void plot_single(int arc, int triplet, int_t int_type);
+  void plot_single(int arc, int triplet, int_t int_type) const;
   // plot all triplets for the specified intensity plot type
-  void plot_one_type(int arc, int_t int_type);
+  void plot_one_type(int arc, int_t int_type) const;
   // plot all intensity plots for the specified triplet
-  void plot_one_triplet(int arc, int triplet);
+  void plot_one_triplet(int arc, int triplet) const;
 
   void initialize(bool store_events, bool store_pixels);
   void setup();
@@ -140,25 +140,25 @@ private:
   void setup_calibration_table();
   void setup_calibration_table_items();
   void setup_calibration_info();
-  void update_calibration_info();
+  void update_calibration_info() const;
 
   void set_intensity_limits();
   void get_intensity_limits();
   void auto_intensity_limits();
-  void set_intensity_limits_triplets();
+  void set_intensity_limits_triplets() const;
   void get_intensity_limits_triplets();
   void auto_intensity_limits_triplets();
-  void set_intensity_limits_types();
+  void set_intensity_limits_types() const;
   void get_intensity_limits_types();
   void auto_intensity_limits_types();
-  void set_intensity_limits_singular();
+  void set_intensity_limits_singular() const;
   void get_intensity_limits_singular();
   void auto_intensity_limits_singular();
-  void update_intensity_limits();
+  void update_intensity_limits() const;
 
-  void set_arc_radio(int arc);
-  void set_triplet_radio(int triplet);
-  void set_type_radio(int_t type);
+  void set_arc_radio(int arc) const;
+  void set_triplet_radio(int triplet) const;
+  void set_type_radio(int_t type) const;
 
   void cycle();
   void cycle_any();
@@ -170,11 +170,11 @@ private:
   void cycle_triplet_type();
   void cycle_arc_triplet_type();
 
-  void reset();
+  void reset() const;
 
   void autoscale_toggled(bool checked);
   void pause_toggled(bool checked);
-  bool is_paused();
+  bool is_paused() const;
 
 
   void save_calibration();

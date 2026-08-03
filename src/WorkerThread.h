@@ -43,7 +43,7 @@ public:
   void consumeForever() {
     consumer.consumeForever();
   }
-  void consumeAll() {
+  void consumeAll() const {
     consumer.consumeAll();
   };
 

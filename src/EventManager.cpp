@@ -17,31 +17,31 @@ bool bifrost::data::EventManager::add(const bifrost::message_t & message){
     messages.push_back(message);
   }
 
-  auto arc_ = bifrost::arc(message.group);
-  auto triplet_ = bifrost::triplet(message.fiber, message.group);
-  auto allowed = pixel_manager.includes(arc_, triplet_, message.a, message.b);
+  const auto arc_ = bifrost::arc(message.group);
+  const auto triplet_ = bifrost::triplet(message.fiber, message.group);
+  const auto allowed = pixel_manager.includes(arc_, triplet_, message.a, message.b);
   if (allowed){
     pixel_manager.add(arc_, triplet_, message.a, message.b);
   }
   return !histogram_manager.has_value() || histogram_manager->add(message, allowed);
 }
 
-bool bifrost::data::EventManager::add(int fiber, int group, int a, int b, double time, uint32_t high, uint32_t low){
+bool bifrost::data::EventManager::add(const int fiber, const int group, const int a, const int b, const double time, const uint32_t high, const uint32_t low){
   return add({fiber, group, a, b, time, high, low});
 }
 
 
-void bifrost::data::EventManager::save_to(const hdf5::node::Group & parent) const {
+void bifrost::data::EventManager::save_to(const hdf5::node::Group & group) const {
   std::string creator{fylgje::creator};
   std::string version{fylgje::version};
   std::string instrument{"BIFROST"};
 
   // create a group for the data
-  auto group = parent.create_group("events");
+  auto events_group = group.create_group("events");
 
-  group.attributes.create_from("creator", creator);
-  group.attributes.create_from("version", version);
-  group.attributes.create_from("instrument", instrument);
+  events_group.attributes.create_from("creator", creator);
+  events_group.attributes.create_from("version", version);
+  events_group.attributes.create_from("instrument", instrument);
   // and the stored messages
   auto dimensions = hdf5::Dimensions({messages.size()});
   auto message_dataspace = hdf5::dataspace::Simple(dimensions);
@@ -51,14 +51,14 @@ void bifrost::data::EventManager::save_to(const hdf5::node::Group & parent) cons
   datasetCreationList.layout(hdf5::property::DatasetLayout::Contiguous);
 
   if (store_events) {
-    auto message_dataset = group.create_dataset("messages", compound, message_dataspace, datasetCreationList);
+    auto message_dataset = events_group.create_dataset("messages", compound, message_dataspace, datasetCreationList);
     message_dataset.write(messages);
   }
   if (histogram_manager.has_value()) {
-    histogram_manager->save_to(parent);
+    histogram_manager->save_to(group);
   }
   if (store_pixels) {
-    pixel_manager.save_to(parent);
+    pixel_manager.save_to(group);
   }
 
   std::cout << "Saved data including " << messages.size() << " readouts to HDF5 file\n";
@@ -76,7 +76,7 @@ void bifrost::data::EventManager::save_to(const hdf5::file::File & file, const s
 
 void bifrost::data::EventManager::save_to(const std::filesystem::path & file, const std::optional<std::string> & group) const{
   namespace fs = std::filesystem;
-  auto status = fs::status(file);
+  const auto status = fs::status(file);
   hdf5::file::File hdf5_file;
   if (status.type() == fs::file_type::regular || status.type() == fs::file_type::symlink){
     // then it should be an HDF5 file that we can write to:
@@ -184,7 +184,7 @@ void bifrost::data::EventManager::write_events(const std::vector<message_t> & ba
   messages_written = total;
 }
 
-void bifrost::data::EventManager::write_pixels(const PixelManager::data_t & snapshot){
+void bifrost::data::EventManager::write_pixels(const PixelManager::data_t & snapshot) const {
   if (!out_file.has_value()){
     throw std::runtime_error("No file open for incremental writing");
   }
@@ -193,7 +193,7 @@ void bifrost::data::EventManager::write_pixels(const PixelManager::data_t & snap
   }
 }
 
-void bifrost::data::EventManager::file_flush(){
+void bifrost::data::EventManager::file_flush() const {
   if (!out_file.has_value()){
     throw std::runtime_error("No file open for incremental writing");
   }

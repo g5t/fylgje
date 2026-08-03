@@ -39,17 +39,18 @@ int fylgjeAppCli(
     kafka::time::milliseconds from,
     std::optional<kafka::time::milliseconds> to,
     const std::optional<std::string> & output_file,
-    bool store_events,
+    const bool store_events,
     bool store_pixels,
-    bool store_histograms,
+    const bool store_histograms,
     kafka::time::milliseconds write_every,
-    bool verbose,
+    const bool verbose,
     int64_t write_buffer
   ) {
   using namespace bifrost::data;
-  auto tubes = configuration.Instrument.units_per_group;
-  auto pixelation = configuration.Instrument.pixels_per_unit;
-  int arcs{5}, triplets{9};
+  const auto tubes = configuration.Instrument.units_per_group;
+  const auto pixelation = configuration.Instrument.pixels_per_unit;
+  constexpr int arcs{5};
+  constexpr int triplets{9};
 
   std::shared_ptr<EventManager> data;
   if (store_histograms) {
@@ -120,8 +121,7 @@ int fylgjeAppCli(
   // single '\r'-rewritten line on a terminal, an occasional plain line when
   // redirected. progress_line_open outlives run(): the consumer holds
   // references to it through the registered callbacks.
-  bool progress_line_open{false};
-  const auto duration_string = [](std::chrono::steady_clock::duration d) -> std::string {
+  const auto duration_string = [](const std::chrono::steady_clock::duration d) -> std::string {
     const auto ms = std::chrono::duration_cast<kafka::time::milliseconds>(d);
     if (ms.count() == 0 && d > std::chrono::steady_clock::duration::zero()) {
       return "<1ms";
@@ -129,6 +129,7 @@ int fylgjeAppCli(
     return kafka::time::milliseconds_to_duration_string(ms);
   };
   if (verbose) {
+    bool progress_line_open{false};
     const bool tty = isatty(fileno(stderr)) != 0;
     auto progress = [&worker, &writer, &progress_line_open, duration_string, tty,
                      run_start = std::chrono::steady_clock::now(),
@@ -188,7 +189,7 @@ int fylgjeAppCli(
     }
     try {
       // drain queued batches and stop the thread; the EventManager is ours
-      // again afterwards (close_file below writes the tail + histograms)
+      // again afterward (close_file below writes the tail + histograms)
       writer->finish();
     } catch (const std::exception & e) {
       fmt::print("Writing failed: {}\n", e.what());

@@ -29,14 +29,14 @@ namespace bifrost {
   /// \brief Convert from group number to arc number
   /// The group number is the index of a triplet within a fiber-ring which is in the range (0, 15]
   /// The arc number corresponds to the triplet energy, which has five discrete values
-  inline int arc(int group) {
+  inline int arc(const int group) {
     return group / 3;
   }
 
   /// \brief Convert from fiber-ring number to module number
   /// The fiber-ring number is the index of a fiber-ring within a module which is in the range (0, 5)
   /// Each two successive fiber numbers correspond to a single ring, or module.
-  inline int module(int fiber) {
+  inline int module(const int fiber) {
     return fiber / 2;
   }
 
@@ -45,30 +45,28 @@ namespace bifrost {
   /// Module 0 holds triplets (0,1,2); module 1 holds triplets (3,4,5); and module 2 holds triplets (6,7,8).
   /// Within a module the group number steps through triplet types (short, medium, long) in order, and
   /// triplet energies [2.7, 3.2, 3.8, 4.4, 5.0] meV in order.
-  inline int triplet(int fiber, int group) {
-    int type = group % 3;
+  inline int triplet(const int fiber, const int group) {
+    const int type = group % 3;
     return module(fiber) * 3 + type;
   }
 
 }
 
 /// \brief Specialization of the h5cpp datatype trait for bifrost::message_t
-namespace hdf5::datatype {
-  template<>
-  class TypeTrait<bifrost::message_t>
+template<>
+class hdf5::datatype::TypeTrait<bifrost::message_t>
+{
+public:
+  using Type = bifrost::message_t;
+  using TypeClass = Compound;
+
+  static TypeClass create(const Type& = Type())
   {
-  public:
-    using Type = bifrost::message_t;
-    using TypeClass = Compound;
+    return bifrost::message_type();
+  }
 
-    static TypeClass create(const Type& = Type())
-    {
-      return bifrost::message_type();
-    }
-
-    const static TypeClass & get(const Type & = Type()) {
-      const static TypeClass & cref_ = create();
-      return cref_;
-    }
-  };
-}
+  const static TypeClass & get(const Type & = Type()) {
+    const static TypeClass & cref_ = create();
+    return cref_;
+  }
+};

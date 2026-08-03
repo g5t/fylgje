@@ -40,7 +40,7 @@ namespace bifrost::data {
     Calibration & calibration;
 
   public:
-    PixelManager(int arcs, int triplets, int tubes, int pixels, Calibration & calib)
+    PixelManager(const int arcs, const int triplets, const int tubes, const int pixels, Calibration & calib)
         : arcs{arcs}, triplets{triplets}, tubes_per_triplet{tubes}, pixels_per_tube{pixels}, calibration(calib)
     {
       pixels_per_tube_arc = triplets * pixels_per_tube;
@@ -87,7 +87,7 @@ namespace bifrost::data {
     void write_to(const hdf5::node::Group & parent) const;
     /// \brief as write_to, but from a caller-provided snapshot of the counts
     ///        (for writing from another thread while add() keeps accumulating)
-    void write_to(const hdf5::node::Group & parent, const data_t & snapshot) const;
+    static void write_to(const hdf5::node::Group & parent, const data_t & snapshot);
   private:
     ///\brief Calculate the group number from the arc and triplet numbers
     ///\param arc The arc number

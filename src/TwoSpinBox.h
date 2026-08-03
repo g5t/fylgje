@@ -12,7 +12,7 @@
 class TwoSpinBox: public QSpinBox
 {
 public:
-    TwoSpinBox(int minimum, int maximum): QSpinBox()
+    TwoSpinBox(const int minimum, const int maximum)
     {
         for (int i=minimum; i<=maximum; i<<=1) {
             acceptedValues << i;
@@ -20,7 +20,7 @@ public:
         setRange(acceptedValues.first(), acceptedValues.last());
         setValue(maximum);
     }
-    void stepBy(int steps) override
+    void stepBy(const int steps) override
     {
          // Bounds the index between 0 and length
         const int length = static_cast<int>((acceptedValues.indexOf(value()) + steps) % acceptedValues.length());

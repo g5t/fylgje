@@ -16,7 +16,7 @@ class KafkaConfig {
 public:
   ///\brief Load Kafka configuration from file
   ///\param KafkaConfigFile
-  KafkaConfig(const std::string & KafkaConfigFile);
+  explicit KafkaConfig(const std::string & KafkaConfigFile);
 
 public:
   // Parameters obtained from JSON config file

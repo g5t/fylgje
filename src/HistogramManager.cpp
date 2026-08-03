@@ -201,38 +201,38 @@ std::string bifrost::data::type_dataset_name(Type type){
 }
 
 
-std::vector<uint64_t> bifrost::data::HistogramManager::type_dimensions(Type type) const{
+std::vector<uint64_t> bifrost::data::HistogramManager::type_dimensions(const Type type) {
   switch (type){
-    case Type::a: {return {BIN1D};}
+    case Type::a:
+    case Type::b:
+    case Type::p:
+    case Type::t:
     case Type::x: {return {BIN1D};}
-    case Type::p: {return {BIN1D};}
-    case Type::xp: {return {BIN2D, BIN2D};}
-    case Type::ab: {return {BIN2D, BIN2D};}
-    case Type::b: {return {BIN1D};}
+    case Type::ab:
+    case Type::pt:
+    case Type::xp:
     case Type::xt: {return {BIN2D, BIN2D};}
-    case Type::pt: {return {BIN2D, BIN2D};}
-    case Type::t: {return {BIN1D};}
     default: return {};
   }
 }
 
 
-void bifrost::data::HistogramManager::create_in(const hdf5::node::Group & parent) const {
+void bifrost::data::HistogramManager::create_in(const hdf5::node::Group & group) const {
   std::string creator{fylgje::creator};
   std::string version{fylgje::version};
   std::string instrument{"BIFROST"};
 
   // create a group for the data
-  auto group = parent.create_group("histograms");
+  auto histograms_group = group.create_group("histograms");
 
-  group.attributes.create_from("creator", creator);
-  group.attributes.create_from("version", version);
-  group.attributes.create_from("instrument", instrument);
-  group.attributes.create_from("arcs", arcs);
-  group.attributes.create_from("triplets", triplets);
+  histograms_group.attributes.create_from("creator", creator);
+  histograms_group.attributes.create_from("version", version);
+  histograms_group.attributes.create_from("instrument", instrument);
+  histograms_group.attributes.create_from("arcs", arcs);
+  histograms_group.attributes.create_from("triplets", triplets);
 
   std::vector<std::string> data_order{{"arc"}, {"triplets"}, {"type"}};
-  group.attributes.create_from("data_order", data_order);
+  histograms_group.attributes.create_from("data_order", data_order);
 
   // all datasets are integer valued
   auto datatype = hdf5::datatype::create<int>();
@@ -242,14 +242,14 @@ void bifrost::data::HistogramManager::create_in(const hdf5::node::Group & parent
 
   // bin center values for 1-D and 2-D axes:
   // TODO add units for each axis
-  auto axg = group.create_group("axes");
+  auto axg = histograms_group.create_group("axes");
   auto ax1 = axg.create_group("1d");
   auto ax2 = axg.create_group("2d");
   auto dtf = hdf5::datatype::create<double>();
-  for (auto & t: TYPE1D){
-    auto dn = type_dataset_name(t);
-    auto ds1 = hdf5::dataspace::Simple({BIN1D+1});
-    auto ds2 = hdf5::dataspace::Simple({BIN2D+1});
+  for (const auto & t: TYPE1D){
+    const auto dn = type_dataset_name(t);
+    const auto ds1 = hdf5::dataspace::Simple({BIN1D+1});
+    const auto ds2 = hdf5::dataspace::Simple({BIN2D+1});
     auto d1 = ax1.create_dataset(dn, dtf, ds1, datasetCreationList);
     auto d2 = ax2.create_dataset(dn, dtf, ds2, datasetCreationList);
     d1.attributes.create_from("axes", axes_names(t));
@@ -260,7 +260,7 @@ void bifrost::data::HistogramManager::create_in(const hdf5::node::Group & parent
   }
   std::string intensity_unit{"counts"};
   for (auto & name: {"everything", "included", "excluded"}){
-    auto dg = group.create_group(name);
+    auto dg = histograms_group.create_group(name);
     for (int a = 0; a < arcs; ++a){
       auto arc_name = fmt::format("arc{}", a);
       auto da = dg.create_group(arc_name);
@@ -306,9 +306,9 @@ void bifrost::data::HistogramManager::write_to(const hdf5::node::Group & parent)
   }
 }
 
-void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & parent) const {
-  create_in(parent);
-  write_to(parent);
+void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & group) const {
+  create_in(group);
+  write_to(group);
 }
 
 

@@ -26,10 +26,10 @@ CalibrationGroup::CalibrationGroup(int i, std::vector<CalibrationUnit> && els)
 }
 
 ///\brief Calibration creation, with groupCount groups, each with elementCount elements
-Calibration::Calibration(int group_count, int element_count)
+Calibration::Calibration(const int group_count, const int element_count)
     : version_{0}, date_{std::time({})}, info_{"generated"}, instrument_{"generated"} {
   // use the same element ranges for all groups
-  double step = 1.0 / element_count;
+  const double step = 1.0 / element_count;
   std::vector<double> edges(1, 0.);
   edges.reserve(element_count + 1);
   for (int i=0; i<element_count - 1; ++i){
@@ -74,7 +74,7 @@ void Calibration::setDate(const std::string & date_str) {
     if (ss.fail()) {
       std::cout << fmt::format("Failed to parse fractional seconds from '{}'", date_str) << std::endl;
     } else {
-      auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(fractional));
+      const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(fractional));
       date_ += std::chrono::duration_cast<std::chrono::seconds>(microseconds).count();
     }
   }
@@ -84,7 +84,7 @@ void Calibration::setGroups(Groups groups) {
   // ensure consistent group sizes
   auto els = groups.empty() ? 0 : groups.front().size();
   if (std::any_of(groups.begin(), groups.end(), [els](const auto & p){return p.size() != els;})){
-    auto message = fmt::format("Inconsistent element sized group(s)! All should match first group, {} elements", els);
+    const auto message = fmt::format("Inconsistent element sized group(s)! All should match first group, {} elements", els);
     throw std::runtime_error(message);
   }
   // ensure the groups are sorted by their index
@@ -106,15 +106,13 @@ void Calibration::setGroups(Groups groups) {
   if (group >= static_cast<int>(groups_.size())){
     return -1;
   }
-  for (const auto & el: groups_[group].elements){
-    if (el.contains(pos)) {
-      return el.index;
-    }
+  if (const auto ptr = std::find_if(groups_[group].elements.begin(), groups_[group].elements.end(), [&pos](const auto & el){return el.contains(pos);}); ptr != groups_[group].elements.end()) {
+    return ptr->index;
   }
   return -1;
 }
 
-[[nodiscard]] double Calibration::unitPosition(int group, int unit, double global_position) const {
+[[nodiscard]] double Calibration::unitPosition(const int group, const int unit, const double global_position) const {
   if (group >= static_cast<int>(groups_.size())){
     return -1;
   }
@@ -149,7 +147,7 @@ void Calibration::setGroups(Groups groups) {
 ///\note The name of this function is set by the nlohmann::json library
 ///      https://json.nlohmann.me/api/adl_serializer/to_json/
 [[maybe_unused]] void to_json(nlohmann::json & json_out, const CalibrationGroup & group_in){
-  auto size = group_in.elements.size();
+  const auto size = group_in.elements.size();
   std::vector<std::pair<double, double>> division(size);
   std::vector<std::array<double, 4>> polynomial(size);
   for (const auto & el: group_in.elements){
@@ -166,11 +164,11 @@ void Calibration::setGroups(Groups groups) {
 ///\note The name of this function is set by the nlohmann::json library
 ///      https://json.nlohmann.me/api/adl_serializer/from_json/
 [[maybe_unused]] void from_json(const nlohmann::json & json_in, CalibrationGroup & group_out){
-  auto index_name = "groupindex";
-  auto index = json_in[index_name].get<int>();
+  const auto index_name = "groupindex";
+  const auto index = json_in[index_name].get<int>();
   auto divisions = json_in["intervals"].get<std::vector<std::pair<double, double>>>();
   auto polynomials = json_in["polynomials"].get<std::vector<std::array<double, 4>>>();
-  auto size = divisions.size();
+  const auto size = divisions.size();
   std::vector<CalibrationUnit> elements;
   elements.reserve(size);
   for (size_t i=0; i<size; ++i){
@@ -207,16 +205,16 @@ void Calibration::setGroups(Groups groups) {
 ///      https://json.nlohmann.me/api/adl_serializer/from_json/
 [[maybe_unused]] void from_json(const nlohmann::json & json_in, Calibration & calibration_out){
   auto json_calibration_in = json_in["Calibration"];
-  auto parameters = json_calibration_in["Parameters"].get<Calibration::Groups>();
+  const auto parameters = json_calibration_in["Parameters"].get<Calibration::Groups>();
   auto groups_name = "groups";
   if (auto groups = json_calibration_in[groups_name].get<int>(); groups != static_cast<int>(parameters.size())){
-    auto message = fmt::format("Expected {} groups but json specifies {}={} instead!", parameters.size(), groups_name, groups);
+    const auto message = fmt::format("Expected {} groups but json specifies {}={} instead!", parameters.size(), groups_name, groups);
     throw std::runtime_error(message);
   }
   auto els = parameters.empty() ? 0 : parameters.front().size();
   auto elements_name = "groupsize"; // "units";
   if (auto elements = json_calibration_in[elements_name].get<int>(); elements != static_cast<int>(els)){
-    auto message = fmt::format("Expected {} units per group but json specifies {}={} instead!", els, elements_name, elements);
+    const auto message = fmt::format("Expected {} units per group but json specifies {}={} instead!", els, elements_name, elements);
     throw std::runtime_error(message);
   }
   calibration_out.setVersion(json_calibration_in["version"].get<int>());

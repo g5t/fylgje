@@ -19,16 +19,16 @@
 int fylgjeApp(
     Configuration & configuration,
     Calibration & calibration,
-    kafka::time::milliseconds from,
-    std::optional<kafka::time::milliseconds> to,
+    const kafka::time::milliseconds from,
+    const std::optional<kafka::time::milliseconds> to,
     const std::optional<std::string> & output_file,
-    bool gui,
-    bool store_events,
-    bool store_pixels,
-    bool store_histograms,
-    kafka::time::milliseconds write_every,
-    bool verbose,
-    int64_t write_buffer
+    const bool gui,
+    const bool store_events,
+    const bool store_pixels,
+    const bool store_histograms,
+    const kafka::time::milliseconds write_every,
+    const bool verbose,
+    const int64_t write_buffer
 ){
   if (gui){
 #ifdef FYLGJE_GUI

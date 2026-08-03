@@ -5,6 +5,7 @@
 ///
 /// \brief Utilities to help convert times to Kafka's standard: milliseconds since epoch
 //===----------------------------------------------------------------------===//
+#pragma once
 #include <string>
 #include <ctime>
 #include <chrono>
@@ -13,7 +14,7 @@ namespace kafka::time {
   std::time_t now_to_time_t();
   std::time_t string_to_time_t(const std::string & time_str);
 
-  std::string time_t_to_string(std::time_t time);
+  // std::string time_t_to_string(std::time_t time);
 
   using milliseconds = std::chrono::duration<int64_t, std::milli>;
 

@@ -46,11 +46,11 @@ namespace bifrost::data {
     // / \brief Add a message to the event manager from its components
     bool add(int fiber, int group, int a, int b, double time, uint32_t high, uint32_t low);
 
-    EventManager & storePixels(bool store=true) {
+    EventManager & storePixels(const bool store=true) {
       store_pixels = store;
       return *this;
     }
-    EventManager & storeEvents(bool store=true) {
+    EventManager & storeEvents(const bool store=true) {
       store_events = store;
       return *this;
     }
@@ -92,7 +92,7 @@ namespace bifrost::data {
     void open_file(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt, bool swmr = false);
     void flush();
     void close_file();
-    [[nodiscard]] bool file_is_open() const { return out_file.has_value(); }
+    // [[nodiscard]] bool file_is_open() const { return out_file.has_value(); }
 
     // Async-writing support (see AsyncWriter). take_messages, buffered_bytes,
     // and pixel_snapshot belong to the thread that calls add(); write_events,
@@ -103,7 +103,7 @@ namespace bifrost::data {
     [[nodiscard]] size_t buffered_bytes() const { return messages.size() * sizeof(message_t); }
     [[nodiscard]] PixelManager::data_t pixel_snapshot() const { return pixel_manager.counts(); }
     void write_events(const std::vector<message_t> & batch);
-    void write_pixels(const PixelManager::data_t & snapshot);
-    void file_flush();
+    void write_pixels(const PixelManager::data_t & snapshot) const;
+    void file_flush() const;
   };
 }

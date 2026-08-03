@@ -9,6 +9,6 @@
 #pragma once
 
 namespace fylgje {
-  inline constexpr const char * version = "v0.1.0";
-  inline constexpr const char * creator = "fylgje";
+  inline constexpr auto version = "v0.1.0";
+  inline constexpr auto creator = "fylgje";
 }

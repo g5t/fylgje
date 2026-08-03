@@ -153,19 +153,19 @@ public:
   }
 
   void run(){
-    using clock_t = std::chrono::steady_clock;
+    using the_clock_t = std::chrono::steady_clock;
     Status intent{Status::Continue};
-    auto last_activity = clock_t::now();
-    auto last_callback = clock_t::now();
-    auto last_progress = clock_t::now();
+    auto last_activity = the_clock_t::now();
+    auto last_callback = the_clock_t::now();
+    auto last_progress = the_clock_t::now();
     while (intent != Status::Halt) {
-      const auto consume_start = clock_t::now();
+      const auto consume_start = the_clock_t::now();
       const auto Msg = consume();
       auto [status, ar51s] = ess::network::handle_message(mConsumer, earliest_timestamp, latest_timestamp, Msg, callbacks, window);
-      consume_time += clock_t::now() - consume_start;
+      consume_time += the_clock_t::now() - consume_start;
       total_ar51 += ar51s;
       if (Msg->err() != RdKafka::ERR__TIMED_OUT) {
-        last_activity = clock_t::now();
+        last_activity = the_clock_t::now();
       }
       delete Msg;
       intent = status;
@@ -175,10 +175,10 @@ public:
         intent = Status::Halt;
       }
       if (intent != Status::Halt && periodic_callback && callback_interval.count() > 0
-          && clock_t::now() - last_callback >= callback_interval) {
-        const auto write_start = clock_t::now();
+          && the_clock_t::now() - last_callback >= callback_interval) {
+        const auto write_start = the_clock_t::now();
         periodic_callback();
-        const auto write_end = clock_t::now();
+        const auto write_end = the_clock_t::now();
         write_time += write_end - write_start;
         ++flush_count;
         last_write_at = write_end;
@@ -191,9 +191,9 @@ public:
         last_activity += write_end - write_start;
       }
       if (intent != Status::Halt && progress_callback && progress_interval.count() > 0
-          && clock_t::now() - last_progress >= progress_interval) {
+          && the_clock_t::now() - last_progress >= progress_interval) {
         progress_callback();
-        last_progress = clock_t::now();
+        last_progress = the_clock_t::now();
       }
       if (intent != Status::Halt && latest_timestamp >= 0
           && kafka::time::now_milliseconds().count() >= latest_timestamp) {
@@ -202,7 +202,7 @@ public:
         window.finish_eof_partitions();
         if (window.all_done()) {
           intent = Status::Halt;
-        } else if (clock_t::now() - last_activity > maximum_idle) {
+        } else if (the_clock_t::now() - last_activity > maximum_idle) {
           break_progress_line();
           fmt::print("No messages or partition EOFs for {} ms after the window closed; stopping\n", maximum_idle.count());
           intent = Status::Halt;

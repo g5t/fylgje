@@ -16,8 +16,19 @@
 /// between `from` and `to` (or until interrupted, if `to` is unset),
 /// optionally writing events, pixels, and/or histograms to `output_file` as
 /// they accumulate.
+/// \param configuration Instrument configuration information
+/// \param calibration Instrument calibration used to pixelate events
+/// \param from Starting time for accumulation
+/// \param to Ending time for accumulation, or std::nullopt to consume forever
+/// \param output_file Optional filename for output of selected data
 /// \param gui Launch the Qt GUI instead of running headless on the CLI;
 ///            unavailable when built without Qt (see `fylgje-cli`)
+/// \param store_events True to save raw decoded events to the output file
+/// \param store_pixels True to save pixelated information to the output file
+/// \param store_histograms True to save processed histograms to the output file
+/// \param write_every Ensure that buffered data is written to the file at least this often (in msec)
+/// \param verbose True to make the consumer loop produce verbose output
+/// \param write_buffer Maximum buffer size in bytes before writing occurs
 int fylgjeApp(
     Configuration & configuration,
     Calibration & calibration,

@@ -8,14 +8,15 @@
 #include <array>
 #include <iostream>
 #include <sstream>
+#include <utility>
 #include <fmt/core.h>
 #include "AppWindow.h"
 #include "./ui_AppWindow.h"
 #include "QHistogramManager.h"
 
 MainWindow::MainWindow(
-    const Configuration & Config,
-    const Calibration & calibration,
+    Configuration  Config,
+    Calibration  calibration,
     const kafka::time::milliseconds start,
     const std::optional<kafka::time::milliseconds> end,
     const std::optional<std::string> & output,
@@ -23,7 +24,7 @@ MainWindow::MainWindow(
     const bool store_pixels,
     QWidget *parent
     )
-    : QMainWindow(parent), ui(new Ui::MainWindow), configuration(Config), calibration(calibration)
+    : QMainWindow(parent), ui(new Ui::MainWindow), configuration(std::move(Config)), calibration(std::move(calibration))
 {
   ui->setupUi(this);
   initialize(store_events, store_pixels);
@@ -98,7 +99,7 @@ MainWindow::MainWindow(
 
 void MainWindow::setup_add_bin_boxes() {
   const auto layout = ui->binsFrame->layout();
-  std::tuple<QString, int_t, void (MainWindow::*)(int), void (MainWindow::*)(int)> groups[]{
+  const std::tuple<QString, int_t, void (MainWindow::*)(int), void (MainWindow::*)(int)> groups[]{
     {"A", int_t::a, &MainWindow::set_bins_a_1d, &MainWindow::set_bins_a_2d},
     {"B", int_t::b, &MainWindow::set_bins_b_1d, &MainWindow::set_bins_b_2d},
     {"x", int_t::x, &MainWindow::set_bins_x_1d, &MainWindow::set_bins_x_2d},
@@ -210,13 +211,9 @@ void MainWindow::setup_gradient_list() const {
   }
   // set the gradient name based on the configuration
   auto setting = configuration.Plot.ColorGradient;
-  bool validName{false};
-  for (const auto & name: validNames) if (name == setting){
+  if (std::any_of(validNames.begin(), validNames.end(), [setting](const auto& name){return name == setting;})) {
     ui->colormapComboBox->setCurrentText(QString(setting.c_str()));
-    validName = true;
-    break;
-  }
-  if (!validName){
+  } else {
     std::cout << fmt::format("Configuration provided color map name {} is not known", setting);
   }
   // set inverted checkbox from the configuration
@@ -278,11 +275,9 @@ void MainWindow::cycle() {
   const auto type_index = order_of_type(_fixed_type);
   // auto type_index = type_order_index(_fixed_type);
   using fylgje::Cycles;
-  auto arc = ui->arcCycleCheck->isChecked();
-  auto triplet = ui->tripletCycleCheck->isChecked();
-  auto type = ui->typeCycleCheck->isChecked();
-  auto index = 4 * type + 2 * triplet + arc;
-  switch (index){
+  const auto arc = ui->arcCycleCheck->isChecked();
+  const auto triplet = ui->tripletCycleCheck->isChecked();
+  switch (const auto type = ui->typeCycleCheck->isChecked(); 4 * type + 2 * triplet + arc){
     case 1: cycle_one = Cycles<1>({5}, {_fixed_arc}); break;
     case 2: cycle_one = Cycles<1>({9}, {_fixed_triplet}); break;
     case 4: cycle_one = Cycles<1>({9}, {type_index}); break;
@@ -299,11 +294,10 @@ void MainWindow::cycle() {
 
 void MainWindow::cycle_any(){
   if (is_paused()) return;
-  auto arc = ui->arcCycleCheck->isChecked();
-  auto triplet = ui->tripletCycleCheck->isChecked();
-  auto type = ui->typeCycleCheck->isChecked();
-  auto index = 4 * type + 2 * triplet + arc;
-  switch (index){
+  const auto arc = ui->arcCycleCheck->isChecked();
+  const auto triplet = ui->tripletCycleCheck->isChecked();
+  const auto type = ui->typeCycleCheck->isChecked();
+  switch (const auto index = 4 * type + 2 * triplet + arc){
     case 1: cycle_arc(); break;
     case 2: cycle_triplet(); break;
     case 3: cycle_arc_triplet(); break;
@@ -326,19 +320,19 @@ void MainWindow::cycle_any(){
   }
 }
 
-void MainWindow::set_arc_radio(int arc){
+void MainWindow::set_arc_radio(const int arc) const {
   QRadioButton* radios[]{ui->arcRadio1, ui->arcRadio2, ui->arcRadio3, ui->arcRadio4, ui->arcRadio5};
   radios[arc]->setChecked(true);
 }
 
-void MainWindow::set_triplet_radio(int triplet){
+void MainWindow::set_triplet_radio(const int triplet) const {
   QRadioButton* radios[]{ui->tripRadio1, ui->tripRadio2, ui->tripRadio3,
                          ui->tripRadio4, ui->tripRadio5, ui->tripRadio6,
                          ui->tripRadio7, ui->tripRadio8, ui->tripRadio9};
   radios[triplet]->setChecked(true);
 }
 
-void MainWindow::set_type_radio(MainWindow::int_t type) {
+void MainWindow::set_type_radio(const MainWindow::int_t type) const {
   QRadioButton* radios[]{ui->int__x_Radio, ui->int__A_Radio, ui->int__P_Radio,
                          ui->int_xP_Radio, ui->int_AB_Radio, ui->int__B_Radio,
                          ui->int_xt_Radio, ui->int_Pt_Radio, ui->int__t_Radio};
@@ -418,17 +412,17 @@ void MainWindow::plot(){
   //plots->scale(minima, maxima, !ui->scaleButton->isChecked());
 }
 
-void MainWindow::plot_single(int arc, int triplet, int_t t){
-    PlotManager::Dim d{PlotManager::Dim::none};
-    if (int_t::a == t || int_t::b == t || int_t::x == t || int_t::p == t || int_t::t == t){
+void MainWindow::plot_single(const int arc, const int triplet, const int_t int_type) const {
+    auto d{PlotManager::Dim::none};
+    if (int_t::a == int_type || int_t::b == int_type || int_t::x == int_type || int_t::p == int_type || int_t::t == int_type){
         d = PlotManager::Dim::one;
     }
-    if (int_t::ab == t || int_t::xt == t || int_t::pt == t || int_t::xp == t){
+    if (int_t::ab == int_type || int_t::xt == int_type || int_t::pt == int_type || int_t::xp == int_type){
         d = PlotManager::Dim::two;
     }
-    plots->make_single(d, t);
+    plots->make_single(d, int_type);
     const auto & hists = data->qHistograms();
-    const auto key = hists.key(arc, triplet, t);
+    const auto key = hists.key(arc, triplet, int_type);
     const auto is_log = ui->scaleButton->isChecked();
     const auto gradient = ui->colormapComboBox->currentText().toStdString();
     const auto is_inverted = ui->colormapInvertedCheck->isChecked();
@@ -436,24 +430,24 @@ void MainWindow::plot_single(int arc, int triplet, int_t t){
     if (PlotManager::Dim::one == d){
       using ::bifrost::data::Filter;
       std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
-      if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, t, Filter::none);
-      if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, triplet, t, Filter::positive);
-      if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, triplet, t, Filter::negative);
-      plots->plot_all_included_excluded(0, 0, hists.axis(t), all, included, excluded, 0.0, intensity, is_log);
+      if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, int_type, Filter::none);
+      if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, triplet, int_type, Filter::positive);
+      if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, triplet, int_type, Filter::negative);
+      plots->plot_all_included_excluded(0, 0, hists.axis(int_type), all, included, excluded, 0.0, intensity, is_log);
     }
     if (PlotManager::Dim::two == d){
-        plots->plot(0, 0, hists.data_2D(arc, triplet, t, plot_filter), 0.0, intensity, is_log, gradient, is_inverted, {}, {}, {});
+        plots->plot(0, 0, hists.data_2D(arc, triplet, int_type, plot_filter), 0.0, intensity, is_log, gradient, is_inverted, {}, {}, {});
     }
 }
 
-void MainWindow::plot_one_type(int arc, int_t t){
-  PlotManager::Dim d{PlotManager::Dim::none};
-  if (int_t::a == t || int_t::b == t || int_t::x == t || int_t::p == t || int_t::t == t){
+void MainWindow::plot_one_type(const int arc, const int_t int_type) const {
+  auto d{PlotManager::Dim::none};
+  if (int_t::a == int_type || int_t::b == int_type || int_t::x == int_type || int_t::p == int_type || int_t::t == int_type){
       d = PlotManager::Dim::one;
-  } else if (int_t::ab == t || int_t::xt == t || int_t::pt == t || int_t::xp == t){
+  } else if (int_t::ab == int_type || int_t::xt == int_type || int_t::pt == int_type || int_t::xp == int_type){
       d = PlotManager::Dim::two;
   }
-  plots->make_all_same(d, t);
+  plots->make_all_same(d, int_type);
   const auto is_log = ui->scaleButton->isChecked();
   using ::bifrost::data::Filter;
   const auto & hists = data->qHistograms();
@@ -461,12 +455,12 @@ void MainWindow::plot_one_type(int arc, int_t t){
   if (PlotManager::Dim::one == d){
     for (int i=0; i<3; ++i) {
       for (int j=0; j<3; ++j) {
-        const auto key = hists.key(arc, i*3+j, t);
+        const auto key = hists.key(arc, i*3+j, int_type);
         const auto intensity = 1.0 * max.at(key);
-        if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, i*3+j, t, Filter::none);
-        if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, i*3+j, t, Filter::positive);
-        if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, i*3+j, t, Filter::negative);
-        plots->plot_all_included_excluded(i, j, hists.axis(t), all, included, excluded, 0.0, intensity, is_log);
+        if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, i*3+j, int_type, Filter::none);
+        if (ui->filter1Included->isChecked()) included = hists.data_1D(arc, i*3+j, int_type, Filter::positive);
+        if (ui->filter1Excluded->isChecked()) excluded = hists.data_1D(arc, i*3+j, int_type, Filter::negative);
+        plots->plot_all_included_excluded(i, j, hists.axis(int_type), all, included, excluded, 0.0, intensity, is_log);
       }
     }
   }
@@ -475,14 +469,14 @@ void MainWindow::plot_one_type(int arc, int_t t){
     const auto is_inverted = ui->colormapInvertedCheck->isChecked();
       for (int i=0; i<3; ++i) {
           for (int j=0; j<3; ++j) {
-            const auto key = hists.key(arc, i*3+j, t);
-            plots->plot(i, j, hists.data_2D(arc, i*3+j, t, plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
+            const auto key = hists.key(arc, i*3+j, int_type);
+            plots->plot(i, j, hists.data_2D(arc, i*3+j, int_type, plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
           }
       }
   }
 }
 
-void MainWindow::plot_one_triplet(int arc, int triplet){
+void MainWindow::plot_one_triplet(const int arc, const int triplet) const {
   using ::bifrost::data::Filter;
   plots->make_multi(type_orders());
   static constexpr std::array<int, 9> i{0,0,0,1,1,1,2,2,2};
@@ -490,7 +484,7 @@ void MainWindow::plot_one_triplet(int arc, int triplet){
   const auto is_log = ui->scaleButton->isChecked();
   const auto & hists = data->qHistograms();
   std::optional<std::vector<double>> all{std::nullopt}, included{std::nullopt}, excluded{std::nullopt};
-  for (int t: {0, 1, 2, 5, 8}){
+  for (const int t: {0, 1, 2, 5, 8}){
     const auto key = hists.key(arc, triplet, type_of_order(t));
     const auto intensity = 1.0 * max[key];
     if (ui->filter1Everything->isChecked()) all = hists.data_1D(arc, triplet, type_of_order(t), Filter::none);
@@ -500,26 +494,26 @@ void MainWindow::plot_one_triplet(int arc, int triplet){
   }
   const auto gradient = ui->colormapComboBox->currentText().toStdString();
   const auto is_inverted = ui->colormapInvertedCheck->isChecked();
-  for (int t: {3, 4, 6, 7}){
+  for (const int t: {3, 4, 6, 7}){
     const auto key = hists.key(arc, triplet, type_of_order(t));
     plots->plot(i[t], j[t], hists.data_2D(arc, triplet, type_of_order(t), plot_filter), 0.0, 1.0*max[key], is_log, gradient, is_inverted, {}, {}, {});
   }
 }
 
-void MainWindow::reset(){
+void MainWindow::reset() const {
   data->clear();
 }
 
-void MainWindow::pause_toggled(bool checked)
+void MainWindow::pause_toggled(const bool checked)
 {
   if (!checked) cycle();
 }
 
-bool MainWindow::is_paused(){
+bool MainWindow::is_paused() const {
   return ui->pauseButton->isChecked();
 }
 
-MainWindow::PlotType MainWindow::selected_plot_type(){
+MainWindow::PlotType MainWindow::selected_plot_type() const {
   if (ui->tripletBox->isChecked() && !ui->intTypeBox->isChecked()) return PlotType::Types;
   if (ui->intTypeBox->isChecked() && !ui->tripletBox->isChecked()) return PlotType::Triplets;
   if (ui->intTypeBox->isChecked() && ui->tripletBox->isChecked()) return PlotType::Singular;
@@ -527,13 +521,13 @@ MainWindow::PlotType MainWindow::selected_plot_type(){
 }
 
 
-void MainWindow::autoscale_toggled(bool check)
+void MainWindow::autoscale_toggled(const bool checked)
 {
-  for (auto x: maxBox) x->setReadOnly(check);
-  if (check) set_intensity_limits();
+  for (const auto x: maxBox) x->setReadOnly(checked);
+  if (checked) set_intensity_limits();
 }
 
-void MainWindow::set_intensity_limits_triplets(){
+void MainWindow::set_intensity_limits_triplets() const {
   const auto & hists = data->qHistograms();
   for (int triplet=0; triplet<9; ++triplet){
     const auto key = hists.key(_fixed_arc, triplet, _fixed_type);
@@ -557,7 +551,7 @@ void MainWindow::auto_intensity_limits_triplets(){
   }
 }
 
-void MainWindow::set_intensity_limits_types(){
+void MainWindow::set_intensity_limits_types() const {
   static constexpr std::array<int_t, 9> types{int_t::x, int_t::a, int_t::p, int_t::xp, int_t::ab, int_t::b, int_t::xt, int_t::pt, int_t::t};
   const auto & hists = data->qHistograms();
   for (int type=0; type<9; ++type){
@@ -584,7 +578,7 @@ void MainWindow::auto_intensity_limits_types(){
   }
 }
 
-void MainWindow::set_intensity_limits_singular(){
+void MainWindow::set_intensity_limits_singular() const {
   const auto key = data->qHistograms().key(_fixed_arc, _fixed_triplet, _fixed_type);
   maxBox[0]->setValue(max.at(key));
 }
@@ -609,21 +603,21 @@ void MainWindow::set_intensity_limits() {
 }
 
 void MainWindow::auto_intensity_limits() {
-  auto pt = selected_plot_type();
+  const auto pt = selected_plot_type();
   if (pt == PlotType::Types) auto_intensity_limits_types();
   if (pt == PlotType::Triplets) auto_intensity_limits_triplets();
   if (pt == PlotType::Singular) auto_intensity_limits_singular();
 }
 
-void MainWindow::update_intensity_limits() {
-  auto pt = selected_plot_type();
+void MainWindow::update_intensity_limits() const {
+  const auto pt = selected_plot_type();
   if (pt == PlotType::Types) set_intensity_limits_types();
   if (pt == PlotType::Triplets) set_intensity_limits_triplets();
   if (pt == PlotType::Singular) set_intensity_limits_singular();
 }
 
 void MainWindow::get_intensity_limits(){
-  auto pt = selected_plot_type();
+  const auto pt = selected_plot_type();
   if (pt == PlotType::Types) get_intensity_limits_types();
   if (pt == PlotType::Triplets) get_intensity_limits_triplets();
   if (pt == PlotType::Singular) get_intensity_limits_singular();

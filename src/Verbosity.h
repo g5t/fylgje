@@ -12,7 +12,7 @@
 namespace fylgje::log {
   /// \brief set once at startup, before any consumer/writer threads exist
   void set_verbosity(int level);
-  [[nodiscard]] int verbosity();
+  // [[nodiscard]] int verbosity();
   /// \brief -vv and above: gate Kafka/configuration debug prints on this
   [[nodiscard]] bool debug();
 }

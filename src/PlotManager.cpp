@@ -50,12 +50,11 @@ void PlotManager::make_multi(const std::array<type_t, 9> &ts){
     for (int j=0; j<3; ++j) {
       const auto k = key(i, j);
       const Dim target_dim{i == 0 || j > 1 ? Dim::one : Dim::two};
-      const bool flip = (i>0) & (j>1);
+      const bool flip = (i>0) && (j>1);
       const bool exists = layout->itemAtPosition(i, j) != nullptr;
       const bool wrong_dim  = exists && target_dim != dims[k];
-      const bool wrong_flip = exists && !wrong_dim && flipped.count(k) && flipped.at(k) != flip;
       // Recreate when dim or flip changes
-      if (wrong_dim || wrong_flip) remove(i, j);
+      if (const bool wrong_flip = exists && !wrong_dim && flipped.count(k) && flipped.at(k) != flip; wrong_dim || wrong_flip) remove(i, j);
       if (!layout->itemAtPosition(i, j)) {
         (Dim::one == target_dim) ? make_1D(i, j, flip, ts[i*3+j]) : make_2D(i, j, false, ts[i*3+j]);
       } else if (exists && types.count(k) && types.at(k) != ts[i*3+j]) {
@@ -333,7 +332,7 @@ void PlotManager::make_2D(const int i, const int j, const bool flip, const type_
   in_range_update = false;
 }
 
-void PlotManager::set_axis_labels(const int i, const int j) {
+void PlotManager::set_axis_labels(const int i, const int j) const {
   const auto k = key(i, j);
   if (!plots.count(k) || !types.count(k)) return;
   const auto names = ::bifrost::data::axes_names(types.at(k));

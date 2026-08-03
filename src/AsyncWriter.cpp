@@ -47,7 +47,7 @@ void AsyncWriter::finish(){
   }
   // the thread is gone: no lock needed, and report each error only once
   if (error){
-    auto to_throw = error;
+    const auto to_throw = error;
     error = nullptr;
     std::rethrow_exception(to_throw);
   }

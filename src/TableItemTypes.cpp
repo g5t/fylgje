@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 #include "TableItemTypes.h"
 
-IntTableItem::IntTableItem(qint32 data, bool editable){
+IntTableItem::IntTableItem(const qint32 data, const bool editable){
   data_ = data;
   auto flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
   if (editable){
@@ -17,7 +17,7 @@ IntTableItem::IntTableItem(qint32 data, bool editable){
   setSelected(false);
 }
 
-QVariant IntTableItem::data(int role) const {
+QVariant IntTableItem::data(const int role) const {
   if (role == Qt::EditRole) return data_;
   if (role == Qt::DisplayRole) return data_;
   if (role == Qt::TextAlignmentRole) return QVariant(Qt::AlignHCenter | Qt::AlignVCenter);
@@ -35,20 +35,20 @@ bool IntTableItem::operator<(const IntTableItem & other) const {
   return data_ < other.data_;
 }
 
-OptIntItem::OptIntItem(std::optional<int> data){
+OptIntItem::OptIntItem(const std::optional<int> data){
   data_ = data;
   setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
   setSelected(false);
 }
 
-QVariant OptIntItem::data(int role) const {
+QVariant OptIntItem::data(const int role) const {
   if (role == Qt::EditRole) return data_.has_value() ? data_.value() : QVariant();
   if (role == Qt::DisplayRole) return data_.has_value() ? data_.value() : QVariant();
   if (role == Qt::TextAlignmentRole) return QVariant(Qt::AlignHCenter | Qt::AlignVCenter);
   return QTableWidgetItem::data(role);
 }
 
-void OptIntItem::setData(int role, const QVariant &value){
+void OptIntItem::setData(const int role, const QVariant &value){
   if (role == Qt::EditRole) {
     auto v = value.toInt();
     if (v == data_.value_or(std::numeric_limits<int>::lowest())){
@@ -69,7 +69,7 @@ bool OptIntItem::operator<(const OptIntItem & other) const {
   return true;
 }
 
-FloatTableItem::FloatTableItem(float data, bool editable){
+FloatTableItem::FloatTableItem(const float data, const bool editable){
   data_ = data;
   auto flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
   if (editable){
@@ -79,14 +79,14 @@ FloatTableItem::FloatTableItem(float data, bool editable){
   setSelected(false);
 }
 
-QVariant FloatTableItem::data(int role) const {
+QVariant FloatTableItem::data(const int role) const {
   if (role == Qt::EditRole) return data_;
   if (role == Qt::DisplayRole) return data_;
   if (role == Qt::TextAlignmentRole) return QVariant(Qt::AlignHCenter | Qt::AlignVCenter);
   return QTableWidgetItem::data(role);
 }
 
-void FloatTableItem::setData(int role, const QVariant &value){
+void FloatTableItem::setData(const int role, const QVariant &value){
   if (role == Qt::EditRole) {
     data_ = value.toFloat();
     setCalibrationUnit();
@@ -98,20 +98,20 @@ bool FloatTableItem::operator<(const FloatTableItem & other) const {
   return data_ < other.data_;
 }
 
-OptDoubleItem::OptDoubleItem(std::optional<double> data){
+OptDoubleItem::OptDoubleItem(const std::optional<double> data){
   data_ = data;
   setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
   setSelected(false);
 }
 
-QVariant OptDoubleItem::data(int role) const {
+QVariant OptDoubleItem::data(const int role) const {
   if (role == Qt::EditRole) return data_.has_value() ? data_.value() : QVariant();
   if (role == Qt::DisplayRole) return data_.has_value() ? data_.value() : QVariant();
   if (role == Qt::TextAlignmentRole) return QVariant(Qt::AlignHCenter | Qt::AlignVCenter);
   return QTableWidgetItem::data(role);
 }
 
-void OptDoubleItem::setData(int role, const QVariant &value){
+void OptDoubleItem::setData(const int role, const QVariant &value){
   if (role == Qt::EditRole) {
     auto v = value.toDouble();
     if (v == data_.value_or(std::numeric_limits<double>::lowest())){

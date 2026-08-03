@@ -18,11 +18,11 @@
  * @return A positive double representing the time in seconds since _a_ reference time
  */
 std::tuple<double, uint32_t, uint32_t> frame_time(const ess::network::PulseTimes * header, uint32_t high, uint32_t low){
-  auto converter = [high,low](uint32_t h, uint32_t l) {
+  auto converter = [high,low](const uint32_t h, const uint32_t l) {
     // low is allowed to be less than l, in which case direct subtraction would yield a large positive integer
     // if the cast to int is not done before subtraction.
-    const int ticks = 88'052'500;
-    auto diff = static_cast<int>(low)-static_cast<int>(l);
+    constexpr int ticks = 88'052'500;
+    const auto diff = static_cast<int>(low)-static_cast<int>(l);
     return static_cast<double>(high-h) + static_cast<double>(diff) / ticks;
   };
   double time{0.};

@@ -16,9 +16,9 @@ void fylgje::log::set_verbosity(const int level) {
   verbosity_level.store(level);
 }
 
-int fylgje::log::verbosity() {
-  return verbosity_level.load();
-}
+// int fylgje::log::verbosity() {
+//   return verbosity_level.load();
+// }
 
 bool fylgje::log::debug() {
   return verbosity_level.load() >= 2;

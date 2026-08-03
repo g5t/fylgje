@@ -94,7 +94,7 @@ private:
   void make_plot(int i, int j, bool flip, type_t t);
   void make_1D(int i, int j, bool flip, type_t t);
   void make_2D(int i, int j, bool flip, type_t t);
-  void set_axis_labels(int i, int j);
+  void set_axis_labels(int i, int j) const;
 
 private:
   layout_t * layout{};

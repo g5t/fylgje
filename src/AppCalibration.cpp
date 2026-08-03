@@ -23,17 +23,17 @@ void MainWindow::setup_calibration(){
 }
 
 void MainWindow::setup_calibration_info(){
-  auto layout = ui->calibrationInfoLayout->layout();
-  QString message{calibration.info().c_str()};
+  const auto layout = ui->calibrationInfoLayout->layout();
+  // QString message{calibration.info().c_str()};
   ui->calibrationInfo->setToolTip("Info");
   layout->addWidget(ui->calibrationInfo);
   connect(ui->calibrationInfo, &QLineEdit::textChanged, this, [&](const QString & text){
     calibration.setInfo(text.toStdString());
   });
 
-  std::string date_time_format{"yyyy.MM.ddThh:mm:ss"};
-  auto c_date = calibration.date();
-  auto then = QDateTime::fromSecsSinceEpoch(c_date);
+  const std::string date_time_format{"yyyy.MM.ddThh:mm:ss"};
+  const auto c_date = calibration.date();
+  const auto then = QDateTime::fromSecsSinceEpoch(c_date);
   ui->calibrationTime->setDisplayFormat(date_time_format.c_str());
   ui->calibrationTime->setDateTime(then);
   ui->calibrationTime->setReadOnly(true);
@@ -54,7 +54,7 @@ void MainWindow::setup_calibration_info(){
   calibration_pulse_height_upper->setValue(calibration.pulseHeightUpper());
 }
 
-void MainWindow::update_calibration_info(){
+void MainWindow::update_calibration_info() const {
   ui->calibrationInfo->setText(calibration.info().c_str());
   ui->calibrationTime->setDateTime(QDateTime::fromSecsSinceEpoch(calibration.date()));
   if (calibration_pulse_height_upper) {
@@ -63,7 +63,7 @@ void MainWindow::update_calibration_info(){
 }
 
 void MainWindow::setup_calibration_table(){
-  auto layout = ui->calibrationVerticalLayout->layout();
+  const auto layout = ui->calibrationVerticalLayout->layout();
 
   std::vector<float> arcs{2.7, 3.2, 3.8, 4.4, 5.0};
 
@@ -101,7 +101,7 @@ void MainWindow::setup_calibration_table(){
   for (const auto & [label, _]: calibration_table_columns){
     headers << label.c_str();
   }
-  auto new_calibration_table = new QTableWidget(rows, headers.size(), this);
+  const auto new_calibration_table = new QTableWidget(rows, static_cast<int>(headers.size()), this);
   if (calibration_table) {
     // TODO verify this doesn't cause a segfault
     layout->replaceWidget(calibration_table, new_calibration_table);
@@ -117,17 +117,17 @@ void MainWindow::setup_calibration_table(){
 }
 
 void MainWindow::setup_calibration_table_items(){
-  auto rows = calibration_table->rowCount();
-  auto columns = calibration_table->columnCount();
+  const auto rows = calibration_table->rowCount();
+  const auto columns = calibration_table->columnCount();
   calibration_table_items.reserve(rows * columns);
   // It's not clear if this item management would be handled by setItem internally:
-  for (auto & item: calibration_table_items) delete item;
+  for (const auto & item: calibration_table_items) delete item;
   calibration_table_items.clear();
   for (int group=0; group<configuration.Instrument.groups; ++group){
     for (int unit=0; unit<configuration.Instrument.units_per_group; ++unit){
-      auto arc = group / 9;
-      auto triplet = group % 9;
-      auto row = group * configuration.Instrument.units_per_group + unit;
+      const auto arc = group / 9;
+      const auto triplet = group % 9;
+      const auto row = group * configuration.Instrument.units_per_group + unit;
       for (int column=0; column < columns; ++column){
         // this item handles updating the editable unit fields without a separate callback
         auto item = calibration_table_columns[column].second(arc, triplet, unit, calibration.unitPointer(group, unit));
@@ -140,7 +140,7 @@ void MainWindow::setup_calibration_table_items(){
 
 void MainWindow::save_calibration() {
   using namespace std::filesystem;
-  auto q_filename = QFileDialog::getSaveFileName(this, tr("Save Configuration"), "", tr("JSON files (*.json *.JSON)"));
+  const auto q_filename = QFileDialog::getSaveFileName(this, tr("Save Configuration"), "", tr("JSON files (*.json *.JSON)"));
   auto p = path(q_filename.toStdString());
   if (!p.has_filename()) return;
   auto ext = std::string(p.extension());
@@ -155,19 +155,18 @@ void MainWindow::save_calibration() {
 
 void MainWindow::load_calibration() {
   using namespace std::filesystem;
-  auto title = tr("Load Configuration");
-  auto files = tr("JSON files (*.json *.JSON)");
-  auto p = path(QFileDialog::getOpenFileName(this, title, "", files).toStdString());
+  const auto title = tr("Load Configuration");
+  const auto files = tr("JSON files (*.json *.JSON)");
+  const auto p = path(QFileDialog::getOpenFileName(this, title, "", files).toStdString());
   if (!p.has_filename()) return;
-  nlohmann::json j;
   try {
-    j = from_json_file(std::string(p));
+    const nlohmann::json j = from_json_file(std::string(p));
     calibration = j;
     setup_calibration_table_items();
     update_calibration_info();
   } catch (const std::runtime_error & ex) {
     QMessageBox msgBox;
-    auto txt = fmt::format("Loading calibration from {} failed", std::string(p));
+    const auto txt = fmt::format("Loading calibration from {} failed", std::string(p));
     msgBox.setText(txt.c_str());
     msgBox.setDetailedText(ex.what());
     msgBox.exec();

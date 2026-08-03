@@ -25,21 +25,21 @@ namespace bifrost::data::Q {
     [[nodiscard]] double max(Filter) const;
     [[nodiscard]] double max(int arc, Filter) const;
     [[nodiscard]] double max(int arc, int triplet, Filter) const;
-    [[nodiscard]] double max(int arc, Type t, Filter) const;
-    [[nodiscard]] double max(int arc, int triplet, Type t, Filter) const;
-    [[nodiscard]] double max(key_t k, Filter) const;
+    [[nodiscard]] double max(int arc, Type type, Filter) const;
+    [[nodiscard]] double max(int arc, int triplet, Type type, Filter) const;
+    [[nodiscard]] double max(key_t key, Filter) const;
 
     [[nodiscard]] double min(Filter) const;
     [[nodiscard]] double min(int arc, Filter) const;
     [[nodiscard]] double min(int arc, int triplet, Filter) const;
-    [[nodiscard]] double min(int arc, Type t, Filter) const;
-    [[nodiscard]] double min(int arc, int triplet, Type t, Filter) const;
-    [[nodiscard]] double min(key_t k, Filter) const;
+    [[nodiscard]] double min(int arc, Type type, Filter) const;
+    [[nodiscard]] double min(int arc, int triplet, Type type, Filter) const;
+    [[nodiscard]] double min(key_t key, Filter) const;
 
-    [[nodiscard]] D1 data_1D(int arc, int triplet, Type t, Filter) const;
-    [[nodiscard]] D1 data_1D(key_t k, Filter) const;
-    [[nodiscard]] D2 * data_2D(int arc, int triplet, Type t, Filter) const;
-    [[nodiscard]] D2 * data_2D(key_t k, Filter) const;
+    [[nodiscard]] D1 data_1D(int arc, int triplet, Type type, Filter) const;
+    [[nodiscard]] D1 data_1D(key_t key, Filter) const;
+    [[nodiscard]] D2 * data_2D(int arc, int triplet, Type type, Filter) const;
+    [[nodiscard]] D2 * data_2D(key_t key, Filter) const;
   private:
     [[nodiscard]] int max_1D(key_t t, Filter) const;
     [[nodiscard]] int max_2D(key_t t, Filter) const;

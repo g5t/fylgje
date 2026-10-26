@@ -9,7 +9,7 @@
 #include <map>
 #include <vector>
 #include <fmt/format.h>
-#include <h5cpp/hdf5.hpp>
+#include <highfive/highfive.hpp>
 #include "Calibration.h"
 #include "Message.h"
 
@@ -79,12 +79,12 @@ namespace bifrost::data {
     bool includes(int arc, int triplet, int a, int b) const;
 
     /// \brief create the (empty) pixels group and dataset under the parent
-    void create_in(const hdf5::node::Group & parent) const;
+    void create_in(HighFive::Group & parent) const;
     /// \brief (re)write the pixel data in place; requires create_in was called on the parent
-    void write_to(const hdf5::node::Group & parent) const;
+    void write_to(const HighFive::Group & parent) const;
     /// \brief as write_to, but from a caller-provided snapshot of the counts
     ///        (for writing from another thread while add() keeps accumulating)
-    static void write_to(const hdf5::node::Group & parent, const data_t & snapshot);
+    static void write_to(const HighFive::Group & parent, const data_t & snapshot);
   private:
     ///\brief Calculate the group number from the arc and triplet numbers
     ///\param arc The arc number

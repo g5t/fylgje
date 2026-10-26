@@ -12,7 +12,7 @@
 #include <filesystem>
 #include <thread>
 #include <gtest/gtest.h>
-#include <h5cpp/hdf5.hpp>
+#include <highfive/highfive.hpp>
 
 #include "AsyncWriter.h"
 #include "Calibration.h"
@@ -53,13 +53,12 @@ protected:
     }
   }
 
-  [[nodiscard]] static hdf5::node::Dataset messages_dataset(const hdf5::file::File & file) {
-    return file.root().get_group("fylgje").get_group("events").get_dataset("messages");
+  [[nodiscard]] static HighFive::DataSet messages_dataset(const HighFive::File & file) {
+    return file.getGroup("fylgje").getGroup("events").getDataSet("messages");
   }
 
-  [[nodiscard]] static size_t extent(const hdf5::node::Dataset & dataset) {
-    const auto simple = hdf5::dataspace::Simple(dataset.dataspace());
-    return simple.current_dimensions().at(0);
+  [[nodiscard]] static size_t extent(const HighFive::DataSet & dataset) {
+    return dataset.getDimensions().at(0);
   }
 
   /// wait (bounded) for the writer to have completed at least n batch writes
@@ -91,7 +90,7 @@ TEST_F(AsyncWriterTest, BatchesLandCompleteAndInOrder) {
   }
   data->close_file();
 
-  auto file = hdf5::file::open(std::string(path), hdf5::file::AccessFlags::ReadOnly);
+  const HighFive::File file(path, HighFive::File::ReadOnly);
   auto dataset = messages_dataset(file);
   constexpr auto total = static_cast<size_t>(batches) * per_batch;
   ASSERT_EQ(extent(dataset), total);
@@ -112,18 +111,18 @@ TEST_F(AsyncWriterTest, SwmrReaderFollowsAsyncGrowth) {
   writer.enqueue({data->take_messages(), {}});
   wait_for_flushes(writer, 1);
 
-  auto reader = hdf5::file::open(std::string(path),
-                                 hdf5::file::AccessFlags::ReadOnly | hdf5::file::AccessFlags::SWMRRead);
-  auto dataset = messages_dataset(reader);
-  EXPECT_EQ(extent(dataset), 10u);
+  {
+    // the reader's handles close at the end of this scope
+    const HighFive::File reader(path, HighFive::File::ReadOnly | HighFive::File::ReadSWMR);
+    auto dataset = messages_dataset(reader);
+    EXPECT_EQ(extent(dataset), 10u);
 
-  add_messages(10, 10);
-  writer.enqueue({data->take_messages(), {}});
-  wait_for_flushes(writer, 2);
-  dataset.refresh();
-  EXPECT_EQ(extent(dataset), 20u);
-
-  reader.close();
+    add_messages(10, 10);
+    writer.enqueue({data->take_messages(), {}});
+    wait_for_flushes(writer, 2);
+    dataset.refresh();
+    EXPECT_EQ(extent(dataset), 20u);
+  }
   writer.finish();
   data->close_file();
 }

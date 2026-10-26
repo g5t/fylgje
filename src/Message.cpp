@@ -7,14 +7,16 @@
 //===----------------------------------------------------------------------===//
 #include "Message.h"
 
-hdf5::datatype::Compound bifrost::message_type() {
-  auto compound = hdf5::datatype::Compound::create(sizeof(bifrost::message_t));
-  compound.insert("fiber", offsetof(bifrost::message_t, fiber), hdf5::datatype::create<int>());
-  compound.insert("group", offsetof(bifrost::message_t, group), hdf5::datatype::create<int>());
-  compound.insert("a", offsetof(bifrost::message_t, a), hdf5::datatype::create<int>());
-  compound.insert("b", offsetof(bifrost::message_t, b), hdf5::datatype::create<int>());
-  compound.insert("time", offsetof(bifrost::message_t, time), hdf5::datatype::create<double>());
-  compound.insert("high", offsetof(bifrost::message_t, high), hdf5::datatype::create<uint32_t>());
-  compound.insert("low", offsetof(bifrost::message_t, low), hdf5::datatype::create<uint32_t>());
-  return compound;
+HighFive::CompoundType bifrost::message_type() {
+  using HighFive::create_datatype;
+  // explicit offsets and size: the struct layout, not HighFive's packing rules
+  return {{
+      {"fiber", create_datatype<int>(), offsetof(bifrost::message_t, fiber)},
+      {"group", create_datatype<int>(), offsetof(bifrost::message_t, group)},
+      {"a", create_datatype<int>(), offsetof(bifrost::message_t, a)},
+      {"b", create_datatype<int>(), offsetof(bifrost::message_t, b)},
+      {"time", create_datatype<double>(), offsetof(bifrost::message_t, time)},
+      {"high", create_datatype<uint32_t>(), offsetof(bifrost::message_t, high)},
+      {"low", create_datatype<uint32_t>(), offsetof(bifrost::message_t, low)},
+  }, sizeof(bifrost::message_t)};
 }

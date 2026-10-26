@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 #include <filesystem>
 #include <gtest/gtest.h>
-#include <h5cpp/hdf5.hpp>
+#include <highfive/highfive.hpp>
 
 #include "Calibration.h"
 #include "EventManager.h"
@@ -52,13 +52,12 @@ protected:
     }
   }
 
-  [[nodiscard]] static hdf5::node::Dataset messages_dataset(const hdf5::file::File & file) {
-    return file.root().get_group("fylgje").get_group("events").get_dataset("messages");
+  [[nodiscard]] static HighFive::DataSet messages_dataset(const HighFive::File & file) {
+    return file.getGroup("fylgje").getGroup("events").getDataSet("messages");
   }
 
-  [[nodiscard]] static size_t extent(const hdf5::node::Dataset & dataset) {
-    const auto simple = hdf5::dataspace::Simple(dataset.dataspace());
-    return simple.current_dimensions().at(0);
+  [[nodiscard]] static size_t extent(const HighFive::DataSet & dataset) {
+    return dataset.getDimensions().at(0);
   }
 };
 
@@ -70,7 +69,7 @@ TEST_F(EventManagerWriterTest, AppendsAcrossFlushes) {
   add_messages(second, first);
   data->close_file(); // final flush included
 
-  auto file = hdf5::file::open(std::string(path), hdf5::file::AccessFlags::ReadOnly);
+  const HighFive::File file(path, HighFive::File::ReadOnly);
   auto dataset = messages_dataset(file);
   ASSERT_EQ(extent(dataset), first + second);
 
@@ -86,16 +85,15 @@ TEST_F(EventManagerWriterTest, AppendsAcrossFlushes) {
 
   // the version attribute comes from the shared fylgje_core definition
   for (const auto & group_name: {"events", "histograms", "pixels"}) {
-    std::string version;
-    file.root().get_group("fylgje").get_group(group_name).attributes["version"].read(version);
+    const auto version = file.getGroup("fylgje").getGroup(group_name).getAttribute("version").read<std::string>();
     EXPECT_EQ(version, fylgje::version) << group_name;
   }
 
   // histogram and pixel trees were created and written
-  auto root = file.root().get_group("fylgje");
-  EXPECT_TRUE(root.has_group("histograms"));
-  ASSERT_TRUE(root.has_group("pixels"));
-  auto pixels = root.get_group("pixels").get_dataset("data");
+  auto root = file.getGroup("fylgje");
+  EXPECT_TRUE(root.exist("histograms"));
+  ASSERT_TRUE(root.exist("pixels"));
+  auto pixels = root.getGroup("pixels").getDataSet("data");
   EXPECT_EQ(extent(pixels), static_cast<size_t>(arcs * triplets * tubes * pixelation));
 }
 
@@ -105,17 +103,17 @@ TEST_F(EventManagerWriterTest, SwmrReaderFollowsGrowth) {
   data->flush();
 
   // a second handle (stand-in for another process) reads while we write
-  auto reader = hdf5::file::open(std::string(path),
-                                 hdf5::file::AccessFlags::ReadOnly | hdf5::file::AccessFlags::SWMRRead);
-  auto dataset = messages_dataset(reader);
-  EXPECT_EQ(extent(dataset), 10u);
+  {
+    // the reader's handles close at the end of this scope
+    const HighFive::File reader(path, HighFive::File::ReadOnly | HighFive::File::ReadSWMR);
+    auto dataset = messages_dataset(reader);
+    EXPECT_EQ(extent(dataset), 10u);
 
-  add_messages(10, 10);
-  data->flush();
-  dataset.refresh();
-  EXPECT_EQ(extent(dataset), 20u);
-
-  reader.close();
+    add_messages(10, 10);
+    data->flush();
+    dataset.refresh();
+    EXPECT_EQ(extent(dataset), 20u);
+  }
   data->close_file();
 }
 

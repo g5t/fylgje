@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 #pragma once
 #include <fmt/format.h>
-#include <h5cpp/hdf5.hpp>
+#include <highfive/highfive.hpp>
 
 #include <map>
 #include <vector>
@@ -24,7 +24,7 @@ namespace bifrost {
   };
   typedef struct message message_t;
 
-  hdf5::datatype::Compound message_type();
+  HighFive::CompoundType message_type();
 
   /// \brief Convert from group number to arc number
   /// The group number is the index of a triplet within a fiber-ring which is in the range (0, 15]
@@ -52,21 +52,4 @@ namespace bifrost {
 
 }
 
-/// \brief Specialization of the h5cpp datatype trait for bifrost::message_t
-template<>
-class hdf5::datatype::TypeTrait<bifrost::message_t>
-{
-public:
-  using Type = bifrost::message_t;
-  using TypeClass = Compound;
-
-  static TypeClass create(const Type& = Type())
-  {
-    return bifrost::message_type();
-  }
-
-  const static TypeClass & get(const Type & = Type()) {
-    const static TypeClass & cref_ = create();
-    return cref_;
-  }
-};
+HIGHFIVE_REGISTER_TYPE(bifrost::message_t, bifrost::message_type)

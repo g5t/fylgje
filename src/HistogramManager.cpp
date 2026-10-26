@@ -217,89 +217,83 @@ std::vector<uint64_t> bifrost::data::HistogramManager::type_dimensions(const Typ
 }
 
 
-void bifrost::data::HistogramManager::create_in(const hdf5::node::Group & group) const {
+void bifrost::data::HistogramManager::create_in(HighFive::Group & group) const {
   std::string creator{fylgje::creator};
   std::string version{fylgje::version};
   std::string instrument{"BIFROST"};
 
   // create a group for the data
-  auto histograms_group = group.create_group("histograms");
+  auto histograms_group = group.createGroup("histograms");
 
-  histograms_group.attributes.create_from("creator", creator);
-  histograms_group.attributes.create_from("version", version);
-  histograms_group.attributes.create_from("instrument", instrument);
-  histograms_group.attributes.create_from("arcs", arcs);
-  histograms_group.attributes.create_from("triplets", triplets);
+  histograms_group.createAttribute("creator", creator);
+  histograms_group.createAttribute("version", version);
+  histograms_group.createAttribute("instrument", instrument);
+  histograms_group.createAttribute("arcs", arcs);
+  histograms_group.createAttribute("triplets", triplets);
 
   std::vector<std::string> data_order{{"arc"}, {"triplets"}, {"type"}};
-  histograms_group.attributes.create_from("data_order", data_order);
+  histograms_group.createAttribute("data_order", data_order);
 
-  // all datasets are integer valued
-  auto datatype = hdf5::datatype::create<int>();
-  // their sizes never change, so use contiguous layout (rewritten in place)
-  hdf5::property::DatasetCreationList datasetCreationList;
-  datasetCreationList.layout(hdf5::property::DatasetLayout::Contiguous);
+  // all datasets are integer valued, and their sizes never change: HDF5's
+  // default contiguous layout lets them be rewritten in place
 
   // bin center values for 1-D and 2-D axes:
   // TODO add units for each axis
-  auto axg = histograms_group.create_group("axes");
-  auto ax1 = axg.create_group("1d");
-  auto ax2 = axg.create_group("2d");
-  auto dtf = hdf5::datatype::create<double>();
+  auto axg = histograms_group.createGroup("axes");
+  auto ax1 = axg.createGroup("1d");
+  auto ax2 = axg.createGroup("2d");
   for (const auto & t: TYPE1D){
     const auto dn = type_dataset_name(t);
-    const auto ds1 = hdf5::dataspace::Simple({BIN1D+1});
-    const auto ds2 = hdf5::dataspace::Simple({BIN2D+1});
-    auto d1 = ax1.create_dataset(dn, dtf, ds1, datasetCreationList);
-    auto d2 = ax2.create_dataset(dn, dtf, ds2, datasetCreationList);
-    d1.attributes.create_from("axes", axes_names(t));
-    d2.attributes.create_from("axes", axes_names(t));
+    auto d1 = ax1.createDataSet<double>(dn, HighFive::DataSpace(BIN1D+1));
+    auto d2 = ax2.createDataSet<double>(dn, HighFive::DataSpace(BIN2D+1));
+    d1.createAttribute("axes", axes_names(t));
+    d2.createAttribute("axes", axes_names(t));
     // the axis values are fixed, so write them at creation
     d1.write(axis(t, BIN1D+1));
     d2.write(axis(t, BIN2D+1));
   }
   std::string intensity_unit{"counts"};
   for (auto & name: {"everything", "included", "excluded"}){
-    auto dg = histograms_group.create_group(name);
+    auto dg = histograms_group.createGroup(name);
     for (int a = 0; a < arcs; ++a){
       auto arc_name = fmt::format("arc{}", a);
-      auto da = dg.create_group(arc_name);
+      auto da = dg.createGroup(arc_name);
       for (int t = 0; t < triplets; ++t){
         auto triplet_name = fmt::format("triplet{}", t);
-        auto dt = da.create_group(triplet_name);
+        auto dt = da.createGroup(triplet_name);
         for (auto k: TYPEND){
           auto dataset_name = type_dataset_name(k);
-          auto dsg = dt.create_group(dataset_name);
-          auto dataspace = hdf5::dataspace::Simple(type_dimensions(k));
-          auto ds = dsg.create_dataset("signal", datatype, dataspace, datasetCreationList);
+          auto dsg = dt.createGroup(dataset_name);
+          const auto dims = type_dimensions(k); // uint64_t is not size_t everywhere
+          auto ds = dsg.createDataSet<int>("signal", HighFive::DataSpace(dims.begin(), dims.end()));
           auto the_axes = axes_names(k);
           auto nax = the_axes.size();
           for (auto & ax: the_axes){
-            auto p = hdf5::Path(fmt::format("./{}", ax));
-            dsg.create_link(p, (nax == 1 ? ax1 : ax2).get_dataset(p));
+            dsg.createSoftLink(ax, (nax == 1 ? ax1 : ax2).getDataSet(ax));
           }
-          ds.attributes.create_from("axes", the_axes);
-          ds.attributes.create_from("unit", intensity_unit);
+          ds.createAttribute("axes", the_axes);
+          ds.createAttribute("unit", intensity_unit);
         }
       }
     }
   }
 }
 
-void bifrost::data::HistogramManager::write_to(const hdf5::node::Group & parent) const {
-  auto group = parent.get_group("histograms");
+void bifrost::data::HistogramManager::write_to(const HighFive::Group & parent) const {
+  auto group = parent.getGroup("histograms");
   std::vector<std::pair<std::string, const map_t<data_t>*>> pairs{
       {{"everything", &everything}, {"included", &included}, {"excluded", &excluded}}
   };
   for (auto & [name, data]: pairs){
-    auto dg = group.get_group(name);
+    auto dg = group.getGroup(name);
     for (int a = 0; a < arcs; ++a){
-      auto da = dg.get_group(fmt::format("arc{}", a));
+      auto da = dg.getGroup(fmt::format("arc{}", a));
       for (int t = 0; t < triplets; ++t){
-        auto dt = da.get_group(fmt::format("triplet{}", t));
+        auto dt = da.getGroup(fmt::format("triplet{}", t));
         for (auto k: TYPEND){
-          auto ds = dt.get_group(type_dataset_name(k)).get_dataset("signal");
-          ds.write(data->at(key(a, t, k)));
+          auto ds = dt.getGroup(type_dataset_name(k)).getDataSet("signal");
+          // flat storage of a possibly 2-D histogram: write the buffer as-is
+          ds.write_raw(data->at(key(a, t, k)).data());
         }
       }
     }

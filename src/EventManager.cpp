@@ -37,44 +37,39 @@ void bifrost::data::EventManager::open_file(const std::filesystem::path & file, 
     throw std::runtime_error("A file is already open for incremental writing");
   }
   // SWMR requires the most recent HDF5 file format
-  hdf5::property::FileAccessList fapl;
+  HighFive::FileAccessProps fapl;
   if (swmr) {
-    fapl.library_version_bounds(hdf5::property::LibVersion::Latest, hdf5::property::LibVersion::Latest);
+    fapl.add(HighFive::FileVersionBounds(H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
   }
 
-  auto status = fs::status(file);
-  hdf5::file::File hdf5_file;
-  if (status.type() == fs::file_type::regular || status.type() == fs::file_type::symlink){
-    if (!hdf5::file::is_hdf5_file(std::string(file))) {
-      throw std::runtime_error(fmt::format("{} is not an HDF5 file", std::string(file)));
-    }
-    hdf5_file = hdf5::file::open(std::string(file), hdf5::file::AccessFlags::ReadWrite, fapl);
-  } else if (status.type() == fs::file_type::not_found){
-    hdf5_file = hdf5::file::create(std::string(file), hdf5::file::AccessFlags::Exclusive,
-                                   hdf5::property::FileCreationList(), fapl);
-  } else {
+  const auto status = fs::status(file);
+  const auto exists = status.type() == fs::file_type::regular || status.type() == fs::file_type::symlink;
+  if (exists && H5Fis_accessible(file.c_str(), H5P_DEFAULT) <= 0) {
+    throw std::runtime_error(fmt::format("{} is not an HDF5 file", std::string(file)));
+  }
+  if (!exists && status.type() != fs::file_type::not_found){
     throw std::runtime_error(fmt::format("{} exists but is not a file", std::string(file)));
   }
 
   const auto name = group.value_or("fylgje");
-  if (hdf5_file.root().has_group(name)){
-    throw std::runtime_error(fmt::format("The provided file already has the group /{}", name));
-  }
-
-  // SWMR mode forbids creating objects, so the COMPLETE structure is made here
+  // SWMR mode forbids creating objects, so the COMPLETE structure is made
+  // here; leaving the scope closes every handle, and with them the file
   {
-    auto gr = hdf5_file.root().create_group(name);
-    auto events = gr.create_group("events");
-    events.attributes.create_from("creator", std::string{fylgje::creator});
-    events.attributes.create_from("version", std::string{fylgje::version});
-    events.attributes.create_from("instrument", std::string{"BIFROST"});
+    HighFive::File hdf5_file(file, exists ? HighFive::File::ReadWrite : HighFive::File::Excl, fapl);
+    if (hdf5_file.exist(name)){
+      throw std::runtime_error(fmt::format("The provided file already has the group /{}", name));
+    }
+    auto gr = hdf5_file.createGroup(name);
+    auto events = gr.createGroup("events");
+    events.createAttribute("creator", std::string{fylgje::creator});
+    events.createAttribute("version", std::string{fylgje::version});
+    events.createAttribute("instrument", std::string{"BIFROST"});
     if (store_events) {
       // appendable: chunked with unlimited extent, grown at each flush
-      auto dataspace = hdf5::dataspace::Simple({0}, {hdf5::dataspace::Simple::unlimited});
-      hdf5::property::DatasetCreationList dcpl;
-      dcpl.layout(hdf5::property::DatasetLayout::Chunked);
-      dcpl.chunk({4096});
-      events.create_dataset("messages", bifrost::message_type(), dataspace, dcpl);
+      const HighFive::DataSpace dataspace({0}, {HighFive::DataSpace::UNLIMITED});
+      HighFive::DataSetCreateProps dcpl;
+      dcpl.add(HighFive::Chunking(std::vector<hsize_t>{4096}));
+      events.createDataSet("messages", dataspace, bifrost::message_type(), dcpl);
     }
     if (histogram_manager.has_value()) {
       histogram_manager->create_in(gr);
@@ -84,18 +79,11 @@ void bifrost::data::EventManager::open_file(const std::filesystem::path & file, 
     }
   }
 
-  if (swmr) {
-    // structure is complete: switch to SWMR so other processes may read along
-    hdf5_file.close();
-    hdf5_file = hdf5::file::open(std::string(file),
-                                 hdf5::file::AccessFlags::ReadWrite | hdf5::file::AccessFlags::SWMRWrite,
-                                 fapl);
-  }
-
-  out_file = hdf5_file;
-  out_group = hdf5_file.root().get_group(name);
+  // structure is complete: with SWMR, other processes may now read along
+  out_file.emplace(file, swmr ? HighFive::File::ReadWrite | HighFive::File::WriteSWMR : HighFive::File::ReadWrite, fapl);
+  out_group = out_file->getGroup(name);
   if (store_events) {
-    out_messages = out_group->get_group("events").get_dataset("messages");
+    out_messages = out_group->getGroup("events").getDataSet("messages");
   }
   messages_written = 0;
 }
@@ -116,8 +104,7 @@ void bifrost::data::EventManager::write_events(const std::vector<message_t> & ba
   }
   const auto total = messages_written + batch.size();
   out_messages->resize({total});
-  const hdf5::dataspace::Hyperslab slab({messages_written}, {batch.size()});
-  out_messages->write(batch, slab);
+  out_messages->select({messages_written}, {batch.size()}).write(batch);
   messages_written = total;
 }
 
@@ -130,11 +117,11 @@ void bifrost::data::EventManager::write_pixels(const PixelManager::data_t & snap
   }
 }
 
-void bifrost::data::EventManager::file_flush() const {
+void bifrost::data::EventManager::file_flush() {
   if (!out_file.has_value()){
     throw std::runtime_error("No file open for incremental writing");
   }
-  out_file->flush(hdf5::file::Scope::Global);
+  out_file->flush();
 }
 
 void bifrost::data::EventManager::flush(){
@@ -160,8 +147,8 @@ void bifrost::data::EventManager::close_file(){
   }
   flush();
   std::cout << "Saved data including " << messages_written << " readouts to HDF5 file\n";
+  // the file closes with its last handle
   out_messages.reset();
   out_group.reset();
-  out_file->close();
   out_file.reset();
 }

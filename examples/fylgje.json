@@ -10,7 +10,6 @@
 
     "message.max.bytes"        : "10000000",
     "fetch.message.max.bytes"  : "10000000",
-    "replica.fetch.max.bytes"  : "10000000",
     "enable.auto.commit"       : "false",
     "enable.auto.offset.store" : "false"
   },

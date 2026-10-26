@@ -47,8 +47,6 @@ void Configuration::getKafkaConfig() {
       getVal("kafka", "message.max.bytes", Kafka.MessageMaxBytes);
   Kafka.FetchMessagMaxBytes =
       getVal("kafka", "fetch.message.max.bytes", Kafka.FetchMessagMaxBytes);
-  Kafka.ReplicaFetchMaxBytes =
-      getVal("kafka", "replica.fetch.max.bytes", Kafka.ReplicaFetchMaxBytes);
   Kafka.EnableAutoCommit =
       getVal("kafka", "enable.auto.commit", Kafka.EnableAutoCommit);
   Kafka.EnableAutoOffsetStore =
@@ -77,7 +75,6 @@ void Configuration::print() {
   fmt::print("  topic {}\n", Kafka.Topic);
   fmt::print("  message.max.bytes {}\n", Kafka.MessageMaxBytes);
   fmt::print("  fetch.message.max.bytes {}\n", Kafka.FetchMessagMaxBytes);
-  fmt::print("  replica.fetch.max.bytes {}\n", Kafka.ReplicaFetchMaxBytes);
   fmt::print("  enable.auto.commit {}\n", Kafka.EnableAutoCommit);
   fmt::print("  enable.auto.offset.store {}\n", Kafka.EnableAutoOffsetStore);
   fmt::print("[Plot]\n");

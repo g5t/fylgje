@@ -47,7 +47,6 @@ RdKafka::KafkaConsumer * ess::network::subscribe_topic(
   mConf->set("metadata.broker.list", Config.Kafka.Broker, ErrStr);
   mConf->set("message.max.bytes", Config.Kafka.MessageMaxBytes, ErrStr);
   mConf->set("fetch.message.max.bytes", Config.Kafka.FetchMessagMaxBytes, ErrStr);
-  mConf->set("replica.fetch.max.bytes", Config.Kafka.ReplicaFetchMaxBytes, ErrStr);
   const auto group_id = fmt::format("Groupid (pid) {}", getpid());
   mConf->set("group.id", group_id, ErrStr);
   mConf->set("enable.auto.commit", Config.Kafka.EnableAutoCommit, ErrStr);

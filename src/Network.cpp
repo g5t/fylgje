@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <fmt/format.h>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
 #include <unistd.h>
 #include <vector>
 #include <tuple>
@@ -36,33 +38,37 @@ RdKafka::KafkaConsumer * ess::network::subscribe_topic(
     const Configuration & Config,
     const std::vector<std::pair<std::string, std::string>> & kafkaConfig
     ){
-  const auto mConf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
+  const std::unique_ptr<RdKafka::Conf> mConf{RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL)};
   if (!mConf) {
-    fmt::print("Unable to create global Conf object\n");
-    return nullptr;
+    throw std::runtime_error("Unable to create global Kafka Conf object");
   }
   std::string ErrStr;
+  // a rejected setting must stop us: ignoring it could, e.g., silently drop
+  // security.protocol and connect unauthenticated. Only the name is reported,
+  // since values may be secrets (librdkafka's ErrStr may still quote one).
+  const auto set = [&](const std::string & name, const std::string & value) {
+    if (mConf->set(name, value, ErrStr) != RdKafka::Conf::CONF_OK) {
+      throw std::runtime_error(fmt::format("Kafka setting '{}' rejected: {}", name, ErrStr));
+    }
+  };
   /// \todo figure out good values for these
   /// \todo some may be obsolete
-  mConf->set("metadata.broker.list", Config.Kafka.Broker, ErrStr);
-  mConf->set("message.max.bytes", Config.Kafka.MessageMaxBytes, ErrStr);
-  mConf->set("fetch.message.max.bytes", Config.Kafka.FetchMessagMaxBytes, ErrStr);
-  const auto group_id = fmt::format("Groupid (pid) {}", getpid());
-  mConf->set("group.id", group_id, ErrStr);
-  mConf->set("enable.auto.commit", Config.Kafka.EnableAutoCommit, ErrStr);
-  mConf->set("enable.auto.offset.store", Config.Kafka.EnableAutoOffsetStore, ErrStr);
+  set("metadata.broker.list", Config.Kafka.Broker);
+  set("message.max.bytes", Config.Kafka.MessageMaxBytes);
+  set("fetch.message.max.bytes", Config.Kafka.FetchMessagMaxBytes);
+  set("group.id", fmt::format("Groupid (pid) {}", getpid()));
+  set("enable.auto.commit", Config.Kafka.EnableAutoCommit);
+  set("enable.auto.offset.store", Config.Kafka.EnableAutoOffsetStore);
   // without this, ERR__PARTITION_EOF is never delivered and a finite-window
   // consumer has no way to learn that a partition is exhausted
-  mConf->set("enable.partition.eof", "true", ErrStr);
+  set("enable.partition.eof", "true");
 
   for (const auto &[name, value] : kafkaConfig) {
-    mConf->set(name, value, ErrStr);
+    set(name, value);
   }
-  const auto ret = RdKafka::KafkaConsumer::create(mConf, ErrStr);
-  delete mConf;
+  const auto ret = RdKafka::KafkaConsumer::create(mConf.get(), ErrStr);
   if (!ret) {
-    fmt::print("Failed to create consumer: {}\n", ErrStr);
-    return nullptr;
+    throw std::runtime_error(fmt::format("Failed to create Kafka consumer: {}", ErrStr));
   }
   // **DO NOT** subscribe to the topic -- we need to set the offset _before_ *ASSIGNING* the topic.
   return ret;

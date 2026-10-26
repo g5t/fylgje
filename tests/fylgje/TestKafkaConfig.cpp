@@ -4,14 +4,18 @@
 /// \file
 ///
 /// \brief Tests for KafkaConfig file parsing: consumer properties pass
-///        through, producer-only properties are dropped
+///        through, producer-only properties are dropped; and for applying
+///        them: a setting librdkafka rejects stops consumer creation
 //===----------------------------------------------------------------------===//
 #include <filesystem>
+#include <memory>
 #include <fstream>
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 #include <unistd.h>
+#include "Configuration.h"
 #include "KafkaConfig.h"
+#include "Network.h"
 
 namespace {
 
@@ -68,6 +72,30 @@ TEST_F(KafkaConfigTest, InvalidFileThrows) {
   // the parse failure surfaces before the constructor's own try block, so
   // only the fact of throwing is contractual, not the exception type
   EXPECT_ANY_THROW(KafkaConfig{config_path.string()});
+}
+
+/// a nowhere broker: creating (not subscribing) a consumer never contacts it
+Configuration local_configuration() {
+  Configuration configuration;
+  configuration.Kafka.Broker = "127.0.0.1:1";
+  return configuration;
+}
+
+TEST(SubscribeTopic, RejectedSettingThrowsNamingIt) {
+  // previously dropped silently, so e.g. a rejected security.protocol
+  // left the consumer connecting without it
+  try {
+    delete ess::network::subscribe_topic(local_configuration(), {{"no.such.property", "1"}});
+    FAIL() << "a rejected setting must throw";
+  } catch (const std::runtime_error & e) {
+    EXPECT_NE(std::string(e.what()).find("no.such.property"), std::string::npos) << e.what();
+  }
+}
+
+TEST(SubscribeTopic, AcceptedSettingsCreateConsumer) {
+  const std::unique_ptr<RdKafka::KafkaConsumer> consumer{
+      ess::network::subscribe_topic(local_configuration(), {{"client.id", "fylgje-test"}})};
+  EXPECT_NE(consumer, nullptr);
 }
 
 }

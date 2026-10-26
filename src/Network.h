@@ -143,6 +143,7 @@ namespace ess::network {
   };
 
 /// \brief setup librdkafka parameters for Broker and Topic
+/// \throws std::runtime_error if librdkafka rejects any setting or the consumer
   RdKafka::KafkaConsumer * subscribe_topic(const Configuration & Config, const std::vector<std::pair<std::string, std::string>> & kafkaConfig);
 
   int64_t consume_all(Configuration & configuration, RdKafka::KafkaConsumer * consumer);

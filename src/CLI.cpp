@@ -13,7 +13,6 @@
 #include <string>
 #include <unistd.h>
 
-#include "App.h"
 #include "CLI.h"
 
 #include "AsyncWriter.h"

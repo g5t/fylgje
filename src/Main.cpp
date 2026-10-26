@@ -11,8 +11,8 @@
 
 #include "args.hxx"
 
-#include "App.h"
 #include "Bytes.h"
+#include "CLI.h"
 #include "Configuration.h"
 #include "Calibration.h"
 #include "Time.h"
@@ -125,9 +125,6 @@ int main(int argc, const char *argv[]){
     args::Flag events_flag(parser, "events", "Store events in HDF5 file", {'e', "events"});
     args::Flag pixels_flag(parser, "pixels", "Store pixel data in HDF5 file", {'p', "pixels"});
     args::Flag histograms_flag(parser, "histograms", "Store histogram data in HDF5 file", {'d', "histograms"});
-#ifdef FYLGJE_GUI
-    args::Flag cli_flag(parser, "cli", "Run in CLI mode", {'x', "cli"});
-#endif
 
     try {
       parser.ParseCLI(argc, argv);
@@ -221,17 +218,12 @@ int main(int argc, const char *argv[]){
       }
     }
 
-    bool gui{false};
-#ifdef FYLGJE_GUI
-    gui = !cli_flag;
-#endif
-
     auto write_every = kafka::time::duration_string_to_milliseconds(args::get(write_flag));
     auto write_buffer = fylgje::size_string_to_bytes(args::get(buffer_flag));
 
-    return fylgjeApp(Config, calibration, from_time, to_time, output_file, gui,
-                      events_flag, pixels_flag, histograms_flag, write_every,
-                      args::get(verbose) >= 1, write_buffer);
+    return fylgjeAppCli(Config, calibration, from_time, to_time, output_file,
+                        events_flag, pixels_flag, histograms_flag, write_every,
+                        args::get(verbose) >= 1, write_buffer);
 }
 
 

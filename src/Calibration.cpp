@@ -193,7 +193,7 @@ void Calibration::setGroups(Groups groups) {
     {"pulse_height_upper", calibration_in.pulseHeightUpper()},
     {"groups", calibration_in.groupCount()},
     {"groupsize", calibration_in.elementCount()},
-    {"parameters", calibration_in.groups()}}
+    {"Parameters", calibration_in.groups()}}
   }};
 }
 

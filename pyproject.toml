@@ -1,0 +1,23 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "fylgje"
+dynamic = ["version"]
+description = "Capture and histogram ESS ar51 raw detector readout from Kafka, headless"
+readme = "README.md"
+license = { text = "BSD-2-Clause" }
+authors = [{ name = "Gregory Tucker", email = "gregory.tucker@ess.eu" }]
+requires-python = ">=3.10"
+
+[tool.scikit-build]
+minimum-version = "0.10"
+# no Python extension: one wheel per platform, any CPython 3
+wheel.py-api = "py3"
+wheel.packages = []
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "src/Version.h"
+regex = 'version = "v(?P<value>[^"]+)"'

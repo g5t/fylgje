@@ -41,6 +41,9 @@ TEST(CalibrationJsonTest, RoundTrip) {
 
 TEST(CalibrationGroupTest, RejectsBadUnits) {
   EXPECT_NO_THROW(CalibrationGroup(0, {CalibrationUnit(0, 0.0, 0.3), CalibrationUnit(1, 0.35, 1.0)}));
+  // units in descending position order, with reversed-sense intervals, as BIFROST may need
+  EXPECT_NO_THROW(CalibrationGroup(0, {CalibrationUnit(0, 0.97, 0.7), CalibrationUnit(1, 0.4, 0.6), CalibrationUnit(2, 0.3, 0.01)}));
+  EXPECT_THROW(CalibrationGroup(0, {CalibrationUnit(0, 0.97, 0.5), CalibrationUnit(1, 0.4, 0.6), CalibrationUnit(2, 0.3, 0.01)}), std::runtime_error);
   // overlapping position ranges
   EXPECT_THROW(CalibrationGroup(0, {CalibrationUnit(0, 0.0, 0.5), CalibrationUnit(1, 0.4, 1.0)}), std::runtime_error);
   // unit indexes not 0, 1, ...

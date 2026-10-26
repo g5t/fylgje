@@ -11,7 +11,7 @@
 #include "PixelManager.h"
 
 #include <fmt/format.h>
-#include <h5cpp/hdf5.hpp>
+#include <highfive/highfive.hpp>
 
 #include <map>
 #include <vector>
@@ -27,9 +27,9 @@ namespace bifrost::data {
     bool store_pixels{false};
     bool store_events{false};
     // incremental-writing state (see open_file/flush/close_file)
-    std::optional<hdf5::file::File> out_file;
-    std::optional<hdf5::node::Group> out_group;
-    std::optional<hdf5::node::Dataset> out_messages;
+    std::optional<HighFive::File> out_file;
+    std::optional<HighFive::Group> out_group;
+    std::optional<HighFive::DataSet> out_messages;
     size_t messages_written{0};
 
   public:
@@ -77,17 +77,14 @@ namespace bifrost::data {
 
     const PixelManager & pixels() const { return pixel_manager; }
 
-    void save_to(const hdf5::node::Group & group) const;
-    void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
 
     // Incremental writing: open_file creates the complete file structure up
     // front (events dataset chunked and unlimited), flush appends collected
     // events (clearing them from memory) and rewrites histograms/pixels in
     // place, close_file flushes and releases the file. With swmr=true the
     // file is reopened in HDF5 Single-Writer/Multiple-Reader mode after
-    // creation, so other processes can read it (SWMRRead + refresh) while it
-    // is written; this forces the latest HDF5 file format. Not thread-safe:
+    // creation, so other processes can read it (ReadSWMR + refresh) while it
+    // is written; this requires the HDF5 1.10-1.14 file format. Not thread-safe:
     // call add/flush/close_file from one thread.
     void open_file(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt, bool swmr = false);
     void flush();
@@ -104,6 +101,6 @@ namespace bifrost::data {
     [[nodiscard]] PixelManager::data_t pixel_snapshot() const { return pixel_manager.counts(); }
     void write_events(const std::vector<message_t> & batch);
     void write_pixels(const PixelManager::data_t & snapshot) const;
-    void file_flush() const;
+    void file_flush();
   };
 }

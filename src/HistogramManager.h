@@ -10,7 +10,7 @@
 #include "Message.h"
 
 #include <fmt/format.h>
-#include <h5cpp/hdf5.hpp>
+#include <highfive/highfive.hpp>
 
 #include <map>
 #include <vector>
@@ -229,13 +229,10 @@ namespace bifrost::data {
   public:
     static std::vector<uint64_t> type_dimensions(Type type) ;
 
-    void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const hdf5::node::Group & group) const;
     /// \brief create the (empty) histograms tree under the parent; the fixed axis values are written too
-    void create_in(const hdf5::node::Group & group) const;
+    void create_in(HighFive::Group & group) const;
     /// \brief (re)write all histogram signals in place; requires create_in was called on the parent
-    void write_to(const hdf5::node::Group & parent) const;
+    void write_to(const HighFive::Group & parent) const;
   };
 
 }

@@ -1,5 +1,5 @@
 find_package(fmt REQUIRED)
-find_package(h5cpp REQUIRED)
+find_package(HighFive REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(flatbuffers REQUIRED)
 find_package(Threads REQUIRED)
@@ -45,7 +45,7 @@ target_include_directories(fylgje_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${gene
 target_link_libraries(fylgje_core
   PUBLIC fmt::fmt
   PUBLIC PkgConfig::RdKafka
-  PUBLIC h5cpp::h5cpp
+  PUBLIC HighFive::HighFive
   PUBLIC nlohmann_json::nlohmann_json
   PUBLIC flatbuffers::flatbuffers
   PUBLIC Threads::Threads

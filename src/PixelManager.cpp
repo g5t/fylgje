@@ -56,79 +56,37 @@ int bifrost::data::PixelManager::group(const int arc, const int triplet) const {
 }
 
 
-void bifrost::data::PixelManager::create_in(const hdf5::node::Group & parent) const {
+void bifrost::data::PixelManager::create_in(HighFive::Group & parent) const {
   std::string creator{fylgje::creator};
   std::string version{fylgje::version};
   std::string instrument{"BIFROST"};
 
   // create a group for the data
-  auto pixel_group = parent.create_group("pixels");
+  auto pixel_group = parent.createGroup("pixels");
 
-  pixel_group.attributes.create_from("creator", creator);
-  pixel_group.attributes.create_from("version", version);
-  pixel_group.attributes.create_from("instrument", instrument);
-  pixel_group.attributes.create_from("arcs", arcs);
-  pixel_group.attributes.create_from("triplets", triplets);
-  pixel_group.attributes.create_from("tubes", tubes_per_triplet);
-  pixel_group.attributes.create_from("pixels", pixels_per_tube);
+  pixel_group.createAttribute("creator", creator);
+  pixel_group.createAttribute("version", version);
+  pixel_group.createAttribute("instrument", instrument);
+  pixel_group.createAttribute("arcs", arcs);
+  pixel_group.createAttribute("triplets", triplets);
+  pixel_group.createAttribute("tubes", tubes_per_triplet);
+  pixel_group.createAttribute("pixels", pixels_per_tube);
 
   std::vector<std::string> pixel_order{{"arcs", "tubes", "triplets"}};
   std::vector<std::string> data_order{{"arc"}, {"triplets"}, {"type"}};
-  pixel_group.attributes.create_from("pixel_order", pixel_order);
-  pixel_group.attributes.create_from("data_order", data_order);
+  pixel_group.createAttribute("pixel_order", pixel_order);
+  pixel_group.createAttribute("data_order", data_order);
 
-  // all datasets are integer valued
-  auto datatype = hdf5::datatype::create<int>();
-  // the size never changes, so use contiguous layout (rewritten in place)
-  hdf5::property::DatasetCreationList datasetCreationList;
-  datasetCreationList.layout(hdf5::property::DatasetLayout::Contiguous);
-
-  auto dimensions = hdf5::Dimensions({pixel_data.size()});
-  auto dataspace = hdf5::dataspace::Simple(dimensions);
-  auto pds = pixel_group.create_dataset("data", datatype, dataspace, datasetCreationList);
-  pds.attributes.create_from("wrap_order", pixel_order);
+  // integer valued, and the size never changes: HDF5's default contiguous
+  // layout lets it be rewritten in place
+  auto pds = pixel_group.createDataSet<int>("data", HighFive::DataSpace(pixel_data.size()));
+  pds.createAttribute("wrap_order", pixel_order);
 }
 
-void bifrost::data::PixelManager::write_to(const hdf5::node::Group & parent) const {
+void bifrost::data::PixelManager::write_to(const HighFive::Group & parent) const {
   write_to(parent, pixel_data);
 }
 
-void bifrost::data::PixelManager::write_to(const hdf5::node::Group & parent, const data_t & snapshot) {
-  parent.get_group("pixels").get_dataset("data").write(snapshot);
-}
-
-void bifrost::data::PixelManager::save_to(const hdf5::node::Group & group) const {
-  create_in(group);
-  write_to(group);
-}
-
-
-void bifrost::data::PixelManager::save_to(const hdf5::file::File & file, const std::optional<std::string> & group) const {
-  auto root = file.root();
-  std::string name = group.value_or("fylgje");
-  if (root.has_group(name)){
-    throw std::runtime_error(fmt::format("The provided file already has the group /{}", name));
-  }
-  auto gr = root.create_group(name);
-  save_to(gr);
-}
-
-
-void bifrost::data::PixelManager::save_to(const std::filesystem::path & file, const std::optional<std::string> & group) const{
-  namespace fs = std::filesystem;
-  const auto status = fs::status(file);
-  hdf5::file::File hdf5_file;
-  if (status.type() == fs::file_type::regular || status.type() == fs::file_type::symlink){
-    // then it should be an HDF5 file that we can write to:
-    if (!hdf5::file::is_hdf5_file(std::string(file))) {
-      throw std::runtime_error(fmt::format("{} is not an HDF5 file", std::string(file)));
-    }
-    hdf5_file = hdf5::file::open(std::string(file), hdf5::file::AccessFlags::ReadWrite);
-  } else if (status.type() == fs::file_type::not_found){
-    hdf5_file = hdf5::file::create(std::string(file));
-  } else {
-    throw std::runtime_error(fmt::format("{} exists but is not a file", std::string(file)));
-  }
-
-  save_to(hdf5_file, group);
+void bifrost::data::PixelManager::write_to(const HighFive::Group & parent, const data_t & snapshot) {
+  parent.getGroup("pixels").getDataSet("data").write(snapshot);
 }

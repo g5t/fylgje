@@ -13,12 +13,12 @@ left behind.
 
 ## Build
 
-Dependencies: a C++17 compiler, CMake, librdkafka, h5cpp (HDF5), fmt, nlohmann_json,
+Dependencies: a C++17 compiler, CMake, librdkafka, HighFive (HDF5), fmt, nlohmann_json,
 flatbuffers (`flatc` generates the ar51 header from `schemas/`), and GTest for the tests.
 All are on conda-forge:
 
 ```sh
-micromamba create -p ./env -c conda-forge cmake ninja cxx-compiler librdkafka h5cpp zlib fmt nlohmann_json flatbuffers gtest
+micromamba create -p ./env -c conda-forge cmake ninja cxx-compiler librdkafka highfive zlib fmt nlohmann_json flatbuffers gtest
 cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$PWD/env
 cmake --build build
 ```

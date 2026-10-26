@@ -39,4 +39,12 @@ TEST(CalibrationJsonTest, RoundTrip) {
   EXPECT_EQ(unit.c3.value_or(0), 0.2);
 }
 
+TEST(CalibrationGroupTest, RejectsBadUnits) {
+  EXPECT_NO_THROW(CalibrationGroup(0, {CalibrationUnit(0, 0.0, 0.3), CalibrationUnit(1, 0.35, 1.0)}));
+  // overlapping position ranges
+  EXPECT_THROW(CalibrationGroup(0, {CalibrationUnit(0, 0.0, 0.5), CalibrationUnit(1, 0.4, 1.0)}), std::runtime_error);
+  // unit indexes not 0, 1, ...
+  EXPECT_THROW(CalibrationGroup(0, {CalibrationUnit(1, 0.0, 0.3), CalibrationUnit(0, 0.35, 1.0)}), std::runtime_error);
+}
+
 } // namespace

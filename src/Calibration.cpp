@@ -14,8 +14,8 @@
 CalibrationGroup::CalibrationGroup(int i, std::vector<CalibrationUnit> && els)
 : index{i}, elements{std::move(els)} {
   // check that the provided elements have exclusive position ranges, and are sorted + all present
-  check_sorted_index_is_iota(els, "unit");
-  for (auto ptr = els.begin(); ptr != els.end() && ptr+1 != els.end(); ++ptr){
+  check_sorted_index_is_iota(elements, "unit");
+  for (auto ptr = elements.begin(); ptr != elements.end() && ptr+1 != elements.end(); ++ptr){
     auto nxt = ptr+1;
     if (ptr->maxEdge() > nxt->minEdge()) {
       std::stringstream ss;

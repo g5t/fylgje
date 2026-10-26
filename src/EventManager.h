@@ -84,7 +84,7 @@ namespace bifrost::data {
     // place, close_file flushes and releases the file. With swmr=true the
     // file is reopened in HDF5 Single-Writer/Multiple-Reader mode after
     // creation, so other processes can read it (ReadSWMR + refresh) while it
-    // is written; this forces the latest HDF5 file format. Not thread-safe:
+    // is written; this requires the HDF5 1.10-1.14 file format. Not thread-safe:
     // call add/flush/close_file from one thread.
     void open_file(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt, bool swmr = false);
     void flush();

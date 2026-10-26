@@ -36,10 +36,11 @@ void bifrost::data::EventManager::open_file(const std::filesystem::path & file, 
   if (out_file.has_value()){
     throw std::runtime_error("A file is already open for incremental writing");
   }
-  // SWMR requires the most recent HDF5 file format
+  // SWMR requires at least the 1.10 file format; capping at 1.14 keeps files
+  // written by an HDF5 2.x build readable by 1.14 tools and h5py wheels
   HighFive::FileAccessProps fapl;
   if (swmr) {
-    fapl.add(HighFive::FileVersionBounds(H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
+    fapl.add(HighFive::FileVersionBounds(H5F_LIBVER_V110, H5F_LIBVER_V114));
   }
 
   const auto status = fs::status(file);

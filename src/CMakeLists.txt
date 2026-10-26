@@ -3,8 +3,15 @@ find_package(HighFive REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(flatbuffers REQUIRED)
 find_package(Threads REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(RdKafka REQUIRED IMPORTED_TARGET rdkafka++ rdkafka)
+# Conan provides a CMake config for librdkafka; conda-forge only pkg-config
+find_package(RdKafka CONFIG QUIET)
+if(RdKafka_FOUND)
+  set(rdkafka_targets RdKafka::rdkafka++ RdKafka::rdkafka)
+else()
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(RdKafka REQUIRED IMPORTED_TARGET rdkafka++ rdkafka)
+  set(rdkafka_targets PkgConfig::RdKafka)
+endif()
 
 #=============================================================================
 # ar51 flatbuffer header, generated from the vendored schema
@@ -44,7 +51,7 @@ target_include_directories(fylgje_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${gene
 
 target_link_libraries(fylgje_core
   PUBLIC fmt::fmt
-  PUBLIC PkgConfig::RdKafka
+  PUBLIC ${rdkafka_targets}
   PUBLIC HighFive::HighFive
   PUBLIC nlohmann_json::nlohmann_json
   PUBLIC flatbuffers::flatbuffers

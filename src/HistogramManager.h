@@ -229,9 +229,6 @@ namespace bifrost::data {
   public:
     static std::vector<uint64_t> type_dimensions(Type type) ;
 
-    void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const hdf5::node::Group & group) const;
     /// \brief create the (empty) histograms tree under the parent; the fixed axis values are written too
     void create_in(const hdf5::node::Group & group) const;
     /// \brief (re)write all histogram signals in place; requires create_in was called on the parent

@@ -305,38 +305,3 @@ void bifrost::data::HistogramManager::write_to(const hdf5::node::Group & parent)
     }
   }
 }
-
-void bifrost::data::HistogramManager::save_to(const hdf5::node::Group & group) const {
-  create_in(group);
-  write_to(group);
-}
-
-
-void bifrost::data::HistogramManager::save_to(const hdf5::file::File & file, const std::optional<std::string> & group) const {
-  auto root = file.root();
-  std::string name = group.value_or("fylgje");
-  if (root.has_group(name)){
-    throw std::runtime_error(fmt::format("The provided file already has the group /{}", name));
-  }
-  auto gr = root.create_group(name);
-  save_to(gr);
-}
-
-
-void bifrost::data::HistogramManager::save_to(const std::filesystem::path & file, const std::optional<std::string> & group) const{
-  namespace fs = std::filesystem;
-  auto status = fs::status(file);
-  hdf5::file::File hdf5_file;
-  if (status.type() == fs::file_type::regular || status.type() == fs::file_type::symlink){
-    // then it should be an HDF5 file that we can write to:
-    if (!hdf5::file::is_hdf5_file(std::string(file))) {
-      throw std::runtime_error(fmt::format("{} is not an HDF5 file", std::string(file)));
-    }
-    hdf5_file = hdf5::file::open(std::string(file), hdf5::file::AccessFlags::ReadWrite);
-  } else if (status.type() == fs::file_type::not_found){
-    hdf5_file = hdf5::file::create(std::string(file));
-  } else {
-    throw std::runtime_error(fmt::format("{} exists but is not a file", std::string(file)));
-  }
-  save_to(hdf5_file, group);
-}

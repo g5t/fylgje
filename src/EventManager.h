@@ -77,9 +77,6 @@ namespace bifrost::data {
 
     const PixelManager & pixels() const { return pixel_manager; }
 
-    void save_to(const hdf5::node::Group & group) const;
-    void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
 
     // Incremental writing: open_file creates the complete file structure up
     // front (events dataset chunked and unlimited), flush appends collected

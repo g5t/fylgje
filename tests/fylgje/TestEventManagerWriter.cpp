@@ -4,8 +4,7 @@
 /// \file
 ///
 /// \brief Tests for EventManager incremental HDF5 writing (open_file/flush/
-///        close_file) and its SWMR readability, plus the one-shot save_to
-///        contract the GUI relies on
+///        close_file) and its SWMR readability
 //===----------------------------------------------------------------------===//
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -123,25 +122,8 @@ TEST_F(EventManagerWriterTest, SwmrReaderFollowsGrowth) {
 TEST_F(EventManagerWriterTest, RefusesExistingGroup) {
   data->open_file(path);
   data->close_file();
-  // the file now holds /fylgje: both writer and one-shot saves must refuse it
+  // the file now holds /fylgje: the writer must refuse it
   EXPECT_THROW(data->open_file(path), std::runtime_error);
-  EXPECT_THROW(data->save_to(path), std::runtime_error);
-}
-
-TEST_F(EventManagerWriterTest, OneShotSaveKeepsEventsInMemory) {
-  // the GUI saves via save_to and may save repeatedly: the second file must
-  // still contain everything, i.e. save_to must not drain the event list
-  constexpr int count{25};
-  add_messages(count, 0);
-  const auto second_path = path.string() + ".again.h5";
-  data->save_to(path);
-  data->save_to(second_path);
-
-  for (const auto & p: {path.string(), second_path}) {
-    auto file = hdf5::file::open(p, hdf5::file::AccessFlags::ReadOnly);
-    EXPECT_EQ(extent(messages_dataset(file)), count) << p;
-  }
-  std::filesystem::remove(second_path);
 }
 
 }

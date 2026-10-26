@@ -78,9 +78,6 @@ namespace bifrost::data {
     ///\brief Determine if the charge division would give a pixel number
     bool includes(int arc, int triplet, int a, int b) const;
 
-    void save_to(const std::filesystem::path & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const hdf5::file::File & file, const std::optional<std::string> & group = std::nullopt) const;
-    void save_to(const hdf5::node::Group & group) const;
     /// \brief create the (empty) pixels group and dataset under the parent
     void create_in(const hdf5::node::Group & parent) const;
     /// \brief (re)write the pixel data in place; requires create_in was called on the parent

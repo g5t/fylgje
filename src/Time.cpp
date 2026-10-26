@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 #include "Time.h"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <cctype>
 #include <iostream>

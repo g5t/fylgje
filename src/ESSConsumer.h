@@ -19,7 +19,7 @@
 #include <librdkafka/rdkafkacpp.h>
 #include "EventManager.h"
 #include "KafkaConfig.h"
-#include "Time.h"
+#include "KafkaTime.h"
 #include "Network.h"
 
 std::tuple<double, uint32_t, uint32_t> frame_time(const ess::network::PulseTimes * header, uint32_t high, uint32_t low);

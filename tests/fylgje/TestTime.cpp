@@ -6,7 +6,7 @@
 /// \brief Tests for kafka::time duration string parsing and formatting
 //===----------------------------------------------------------------------===//
 #include <gtest/gtest.h>
-#include "Time.h"
+#include "KafkaTime.h"
 
 namespace {
 

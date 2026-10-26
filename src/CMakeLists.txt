@@ -42,7 +42,7 @@ add_library(fylgje_core STATIC
   Message.cpp
   Network.cpp
   PixelManager.cpp
-  Time.cpp
+  KafkaTime.cpp
   Verbosity.cpp
   ${generated_dir}/ar51_readout_data_generated.h
 )

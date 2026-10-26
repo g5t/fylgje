@@ -15,7 +15,7 @@
 #include "CLI.h"
 #include "Configuration.h"
 #include "Calibration.h"
-#include "Time.h"
+#include "KafkaTime.h"
 #include "Verbosity.h"
 #include "Version.h"
 

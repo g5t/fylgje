@@ -5,7 +5,7 @@
 ///
 /// \brief Utilities to help convert times to Kafka's standard: milliseconds since epoch
 //===----------------------------------------------------------------------===//
-#include "Time.h"
+#include "KafkaTime.h"
 
 #include <fmt/format.h>
 

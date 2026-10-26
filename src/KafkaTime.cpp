@@ -13,6 +13,7 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
+#include <sstream>
 
 using namespace kafka::time;
 

@@ -1,18 +1,29 @@
-include(QtLibraryConfig)
-find_package(RdKafka REQUIRED)
+find_package(fmt REQUIRED)
 find_package(h5cpp REQUIRED)
-find_package(qplot REQUIRED)
-
-set(core_target fylgje_core)
-set(cli_target fylgje-cli)
-set(gui_target fylgje)
+find_package(nlohmann_json REQUIRED)
+find_package(flatbuffers REQUIRED)
+find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(RdKafka REQUIRED IMPORTED_TARGET rdkafka++ rdkafka)
 
 #=============================================================================
-# fylgje_core: GUI-agnostic consumer/data handling, shared by the CLI, the
-# GUI, and the test executables
+# ar51 flatbuffer header, generated from the vendored schema
 #=============================================================================
 
-set(${core_target}_src
+set(ar51_schema ${PROJECT_SOURCE_DIR}/schemas/ar51_readout_data.fbs)
+set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/generated)
+add_custom_command(
+  OUTPUT ${generated_dir}/ar51_readout_data_generated.h
+  COMMAND flatbuffers::flatc --cpp -o ${generated_dir} ${ar51_schema}
+  DEPENDS ${ar51_schema}
+  COMMENT "Generating ar51 flatbuffer header"
+)
+
+#=============================================================================
+# fylgje_core: consumer/data handling, shared by the CLI and the tests
+#=============================================================================
+
+add_library(fylgje_core STATIC
   AsyncWriter.cpp
   Bytes.cpp
   Calibration.cpp
@@ -26,115 +37,30 @@ set(${core_target}_src
   PixelManager.cpp
   Time.cpp
   Verbosity.cpp
+  ${generated_dir}/ar51_readout_data_generated.h
 )
 
-set(${core_target}_inc
-  AsyncWriter.h
-  Bytes.h
-  Calibration.h
-  Configuration.h
-  ESSConsumer.h
-  EventManager.h
-  HistogramManager.h
-  JsonFile.h
-  KafkaConfig.h
-  Message.h
-  Network.h
-  PixelManager.h
-  Time.h
-  Verbosity.h
-  Version.h
-)
+target_include_directories(fylgje_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${generated_dir})
 
-add_library(
-  ${core_target}
-  STATIC
-  ${${core_target}_src}
-  ${${core_target}_inc}
-)
-
-target_include_directories(${core_target} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-find_package(Threads REQUIRED)
-
-target_link_libraries(
-  ${core_target}
+target_link_libraries(fylgje_core
   PUBLIC fmt::fmt
-  PUBLIC RdKafka::rdkafka++
-  PUBLIC RdKafka::rdkafka
+  PUBLIC PkgConfig::RdKafka
   PUBLIC h5cpp::h5cpp
+  PUBLIC nlohmann_json::nlohmann_json
+  PUBLIC flatbuffers::flatbuffers
   PUBLIC Threads::Threads
 )
-
-target_link_libraries(${core_target}
-  PUBLIC $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(${core_target}
-  PUBLIC $<$<AND:$<CXX_COMPILER_ID:AppleClang>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,11.0>>:c++fs>)
 
 #=============================================================================
 # fylgje-cli: headless consumer
 #=============================================================================
 
-# Main/App/CLI are compiled per-executable because FYLGJE_GUI switches their behaviour
-add_executable(
-  ${cli_target}
-  App.cpp
-  App.h
-  CLI.cpp
-  CLI.h
-  Main.cpp
-)
+add_executable(fylgje-cli CLI.cpp CLI.h Main.cpp)
+target_link_libraries(fylgje-cli PRIVATE fylgje_core)
 
-target_link_libraries(
-  ${cli_target}
-  PRIVATE ${core_target}
-)
-
-#=============================================================================
-# fylgje: Qt GUI
-#=============================================================================
-
-set(${gui_target}_src
-  App.cpp
-  AppWindow.cpp
-  AppOverview.cpp
-  AppCalibration.cpp
-  AppData.cpp
-  AppDetailed.cpp
-  CLI.cpp
-  GUI.cpp
-  Main.cpp
-  PlotManager.cpp
-  QHistogramManager.cpp
-  TableItemTypes.cpp
-)
-set(${gui_target}_inc
-  App.h
-  AppWindow.h
-  CLI.h
-  Cycles.h
-  GUI.h
-  PlotManager.h
-  QEventManager.h
-  QHistogramManager.h
-  TwoSpinBox.h
-  WorkerThread.h
-)
-set(${gui_target}_ui
-  AppWindow.ui
-)
-set(CMAKE_AUTOUIC ON)
-add_executable(
-  ${gui_target}
-  ${${gui_target}_src}
-  ${${gui_target}_inc}
-  ${${gui_target}_ui}
-)
-target_compile_definitions(${gui_target} PUBLIC FYLGJE_GUI)
-target_link_libraries(
-  ${gui_target}
-  PRIVATE ${core_target}
-  PRIVATE QPlot
-  PRIVATE Qt6::Widgets
-  PRIVATE Qt6::Core5Compat
-)
+if(SKBUILD)
+  install(TARGETS fylgje-cli DESTINATION ${SKBUILD_SCRIPTS_DIR})
+else()
+  include(GNUInstallDirs)
+  install(TARGETS fylgje-cli DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()

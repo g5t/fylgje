@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <vector>
 #include <tuple>
+#include <sstream>
 
 using namespace ess::network;
 //

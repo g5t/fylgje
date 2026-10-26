@@ -12,6 +12,11 @@
 #include <optional>
 #include <cstring>
 #include <limits>
+#include <algorithm>
+#include <numeric>
+#include <sstream>
+#include <stdexcept>
+#include <vector>
 
 
 ///\brief Raise a runtime error if the provided vector is not sorted by index

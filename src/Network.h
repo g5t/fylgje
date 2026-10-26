@@ -11,7 +11,7 @@
 #include <librdkafka/rdkafkacpp.h>
 #include "EventManager.h"
 #include "KafkaConfig.h"
-#include "Time.h"
+#include "KafkaTime.h"
 
 namespace ess::network {
   enum Status {Continue, Update, Halt};

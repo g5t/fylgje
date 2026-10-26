@@ -8,7 +8,7 @@
 #pragma once
 #include "Configuration.h"
 #include "Calibration.h"
-#include "Time.h"
+#include "KafkaTime.h"
 
 /// \brief Run fylgje headless: no Qt dependency, so it works over a plain (non-X-forwarded) ssh connection
 ///

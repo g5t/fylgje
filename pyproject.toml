@@ -1,6 +1,8 @@
 [build-system]
-requires = ["scikit-build-core>=0.10"]
-build-backend = "scikit_build_core.build"
+# conanfile.py supplies the dependencies, built from source where ConanCenter
+# has no matching binary
+requires = ["scikit-build-core>=0.10", "scikit-build-core-conan>=0.9"]
+build-backend = "scikit_build_core_conan.build"
 
 [project]
 name = "fylgje"
@@ -21,3 +23,15 @@ wheel.packages = []
 provider = "scikit_build_core.metadata.regex"
 input = "src/Version.h"
 regex = 'version = "v(?P<value>[^"]+)"'
+
+[tool.scikit-build-core-conan]
+# cyrus-sasl 2.1.28 has K&R-style prototypes that C23 (GCC 15's default) rejects
+config = ["cyrus-sasl/*:tools.build:cflags=['-std=gnu17']"]
+
+[tool.cibuildwheel]
+archs = ["auto64"]
+# py3-none wheels: build against a single CPython per platform
+build = ["cp312-*"]
+skip = ["*-musllinux*"]
+build-verbosity = 1
+test-command = "fylgje-cli --version && fylgje-cli --help"

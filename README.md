@@ -23,7 +23,11 @@ cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$PWD/env
 cmake --build build
 ```
 
-Or, in that environment, `pip install .` puts `fylgje-cli` on `PATH`.
+`cmake --install build --prefix $PWD/env` then puts `fylgje-cli` on that environment's `PATH`.
+
+`pip install .` instead builds the dependencies from source with Conan (see `conanfile.py`)
+and links them statically, which is how the PyPI wheels are made; release wheels are built by
+cibuildwheel in `.github/workflows/wheels.yml`.
 
 ## Use
 

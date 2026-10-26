@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <sstream>
 #include <iostream>
+#include <utility>
 #include "Calibration.h"
 
 ///\brief CalibrationGroup creation, checking CalibrationUnit vector is sorted by index and that all indexes are present
@@ -174,8 +175,8 @@ void Calibration::setGroups(Groups groups) {
   for (size_t i=0; i<size; ++i){
     elements.emplace_back(i, divisions.at(i), polynomials.at(i));
   }
-  group_out.index = index;
-  group_out.elements = elements;
+  // the constructor validates unit order and position ranges
+  group_out = CalibrationGroup(index, std::move(elements));
 }
 
 

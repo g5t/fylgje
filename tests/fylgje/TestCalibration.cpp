@@ -47,4 +47,10 @@ TEST(CalibrationGroupTest, RejectsBadUnits) {
   EXPECT_THROW(CalibrationGroup(0, {CalibrationUnit(1, 0.0, 0.3), CalibrationUnit(0, 0.35, 1.0)}), std::runtime_error);
 }
 
+TEST(CalibrationJsonTest, RejectsOverlappingIntervals) {
+  const auto json = nlohmann::json::parse(R"({"groupindex": 0, "intervals": [[0.0, 0.5], [0.4, 1.0]],
+                                              "polynomials": [[0, 0, 0, 0], [0, 0, 0, 0]]})");
+  EXPECT_THROW(json.get<CalibrationGroup>(), std::runtime_error);
+}
+
 } // namespace

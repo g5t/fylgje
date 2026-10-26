@@ -221,9 +221,15 @@ int main(int argc, const char *argv[]){
     auto write_every = kafka::time::duration_string_to_milliseconds(args::get(write_flag));
     auto write_buffer = fylgje::size_string_to_bytes(args::get(buffer_flag));
 
-    return fylgjeAppCli(Config, calibration, from_time, to_time, output_file,
-                        events_flag, pixels_flag, histograms_flag, write_every,
-                        args::get(verbose) >= 1, write_buffer);
+    // setup failures (Kafka settings, output file) report and exit cleanly
+    try {
+      return fylgjeAppCli(Config, calibration, from_time, to_time, output_file,
+                          events_flag, pixels_flag, histograms_flag, write_every,
+                          args::get(verbose) >= 1, write_buffer);
+    } catch (const std::exception & e) {
+      std::cerr << "fylgje: " << e.what() << std::endl;
+      return 1;
+    }
 }
 
 

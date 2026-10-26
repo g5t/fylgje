@@ -334,8 +334,7 @@ private:
 
   void setup() {
     kafkaConfig = KafkaConfig(configuration.KafkaConfigFile).CfgParms;
-    mConsumer = ess::network::subscribe_topic(configuration, kafkaConfig);
-    assert(mConsumer != nullptr);
+    mConsumer = ess::network::subscribe_topic(configuration, kafkaConfig); // throws on failure
     // positioning (offset lookup + assign) happens in consumeFrom
   }
 

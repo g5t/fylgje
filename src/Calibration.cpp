@@ -7,15 +7,20 @@
 //===----------------------------------------------------------------------===//
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 #include <iostream>
+#include <utility>
 #include "Calibration.h"
 
 ///\brief CalibrationGroup creation, checking CalibrationUnit vector is sorted by index and that all indexes are present
 CalibrationGroup::CalibrationGroup(int i, std::vector<CalibrationUnit> && els)
 : index{i}, elements{std::move(els)} {
-  // check that the provided elements have exclusive position ranges, and are sorted + all present
-  check_sorted_index_is_iota(els, "unit");
-  for (auto ptr = els.begin(); ptr != els.end() && ptr+1 != els.end(); ++ptr){
+  // check that the provided elements are sorted + all present, and have exclusive position ranges
+  check_sorted_index_is_iota(elements, "unit");
+  // units may run in either position order (BIFROST tubes can descend), so compare in position order like the EFU
+  auto by_position = elements;
+  std::sort(by_position.begin(), by_position.end(), [](const auto & a, const auto & b){return a.minEdge() < b.minEdge();});
+  for (auto ptr = by_position.begin(); ptr != by_position.end() && ptr+1 != by_position.end(); ++ptr){
     auto nxt = ptr+1;
     if (ptr->maxEdge() > nxt->minEdge()) {
       std::stringstream ss;
@@ -174,8 +179,8 @@ void Calibration::setGroups(Groups groups) {
   for (size_t i=0; i<size; ++i){
     elements.emplace_back(i, divisions.at(i), polynomials.at(i));
   }
-  group_out.index = index;
-  group_out.elements = elements;
+  // the constructor validates unit order and position ranges
+  group_out = CalibrationGroup(index, std::move(elements));
 }
 
 
@@ -193,7 +198,7 @@ void Calibration::setGroups(Groups groups) {
     {"pulse_height_upper", calibration_in.pulseHeightUpper()},
     {"groups", calibration_in.groupCount()},
     {"groupsize", calibration_in.elementCount()},
-    {"parameters", calibration_in.groups()}}
+    {"Parameters", calibration_in.groups()}}
   }};
 }
 

@@ -15,6 +15,7 @@ add_executable(fylgje_mock_tests
         fylgje/MockKafkaCluster.h
         fylgje/TestAsyncWriter.cpp
         fylgje/TestBytes.cpp
+        fylgje/TestCalibration.cpp
         fylgje/TestConsumerMockCluster.cpp
         fylgje/TestEventManagerWriter.cpp
         fylgje/TestKafkaConfig.cpp
